@@ -1,0 +1,177 @@
+var DECODER_SIGMOID = 0;
+var DECODER_LINEAR = 1;
+
+var observeHelper = function(dist, val) {
+    if (val !== undefined) {
+        factor(dist.score(val));
+        return val;
+    } else {
+        return sample(dist, {
+            guide: function() {
+                return dist; // prevent auto-guide in Forward; always use model dist
+            }
+        });
+    }
+};
+
+var makeModelParam = param; // modelParamL2(10);
+
+var makeEncoder = function(params) {
+    return stack([
+        tanh,
+        bias('bias1', makeModelParam),
+        affine(params.latentDimension, 'layer1', makeModelParam)
+    ]);
+}
+
+// Sequence encoder repeats encoder step until input is completely digested
+// params : { latentDimension }
+var makeSequenceEncoder = function(params) {
+    var makeEncoderStep = function() {
+        var enc_net = lstm(params.latentDimension, 'enc-h', makeModelParam);     // <- THIS LINE CHANGED
+        return function(prevState, x) {
+            assert.ok(dims(prevState)[0] === params.latentDimension, 'Previous hidden vector has unexpected dimension');
+            var nextState = enc_net(prevState, x);    // Originally, oneHot was done here
+            return nextState;
+        };
+    };
+
+    var initialState = makeModelParam({ name: 'enc-init', dims: [params.latentDimension, 1] });
+    var encoderStep = makeEncoderStep();
+    var encoder = function(xs, maybeState) {
+        var state = maybeState || initialState;
+        if (xs.length === 0) {
+            return state;
+        } else {
+            var nextState = encoderStep(state, xs[0]);
+            return encoder(xs.slice(1), nextState);
+        }
+    };
+    return encoder;
+};
+
+var makeDecoder = function(params) {
+    if (params.decoderType == DECODER_SIGMOID) {
+        return stack([
+            sigmoid,
+            affine(params.outputDimension, 'dec0', makeModelParam)
+        ]);
+    } else {
+        return stack([
+            affine(params.outputDimension, 'dec0', makeModelParam)
+        ]);
+    }
+};
+
+// Decoder repeats decoder step until terminal symbol is observed or max length is exceeded
+// params: { outputDimension, latentDimension, outputStartSymbolIndex, outputTerminalSymbolIndex }
+// returns decoder
+//     Decoder
+//         opts { state, remainingSeq (sequence of vocabulary indices) }
+var makeSequenceDecoder = function(params) {
+    var makeDecoderStep = function() {
+        var dec_net_h = lstm(params.latentDimension, 'dec-h', makeModelParam);  // <- THIS LINE CHANGED
+        var dec_net_out = stack([softmax, affine(params.outputDimension, 'dec-out', makeModelParam), concat]);
+        return function(x_prev, state) {
+            assert.ok(dims(state)[0] === params.latentDimension, 'Previous hidden vector has unexpected dimension');
+            var k = x_prev;
+            var v = oneHot(k, params.outputDimension);
+            var nextState = dec_net_h(state, v);                     // <- THIS LINE CHANGED
+            var ps = dec_net_out([nextState, v]);
+            return { ps : ps, state: nextState }
+        };
+    };
+
+    var vocabulary = _.range(params.outputDimension);
+    var decoderStep = makeDecoderStep();
+    var decoder = function(opts) {
+        var state = opts.state;
+        var n = opts.n || 0;
+        var generatedSeq = opts.generatedSeq || [params.outputStartSymbolIndex];
+        var remainingSeq = opts.remainingSeq;
+        var x_prev = _.last(generatedSeq);
+        if ((n === (params.maxSeqLength + 2)) || (x_prev === params.outputTerminalSymbolIndex)) {
+            // We're not slicing off the terminal symbol since not all strings self-terminate,
+            // and we might like to know which do
+            return generatedSeq.slice(1);
+        } else {
+            var tmp = decoderStep(x_prev, state);
+            var nextState = tmp.state;
+            var ps = tmp.ps;
+            var observedX = remainingSeq ? remainingSeq[0] : undefined;
+
+            var generatedX = observeHelper(Categorical({ ps : ps, vs: vocabulary }), observedX);
+            return decoder({
+                state: nextState,
+                n: n+1,
+                generatedSeq: generatedSeq.concat([ generatedX ]),
+                remainingSeq: remainingSeq ? remainingSeq.slice(1) : undefined
+            });
+        }
+    };
+    return decoder;
+};
+
+var makeSequenceInputModel = function(params) {
+    var encoder = makeSequenceEncoder(params);
+    var decoder = makeDecoder(params);
+
+    return function(datum) {
+        var state = encoder(datum);
+        return decoder(state);
+    }
+}
+
+var makeSequenceOutputModel = function(params) {
+    var encoder = makeEncoder(params);
+    var decoder = makeSequenceDecoder(params);
+
+    return function(datum, observation) {
+        var state = encoder(datum);
+        return decoder({state : state, remainingSeq : observation });
+    }
+}
+
+/*
+var encoder = makeEncoder();
+var decoder = makeDecoder(6);
+
+Optimize({
+    model : function() {
+        mapData({ data : data }, function(datum) {
+            var state = encoder(datum);
+            decoder({ state : state, remainingSeq: datum });
+        });
+    },
+    steps: 1000,
+    optMethod: { adam: { stepSize: .01 }}
+});
+
+map(function(datum) {
+    var state = encoder(datum);
+    console.log('Input:', datum);
+    // console.log('Latent:', _.flatten(state.toArray()));
+    console.log('Output:', decoder({ state : state }));
+    console.log();
+}, data)
+
+'done'
+*/
+// Output:
+//
+// Input: [ 0, 0, 0, 0, 0, 0, '$' ]
+// Output: [ 0, 0, 0, 0, 0, 0, '$' ]
+//
+// Input: [ 1, 1, 1, 0, 0, 0, '$' ]
+// Output: [ 1, 1, 1, 0, 0, 0, '$' ]
+//
+// Input: [ 1, 1, 1, 1, 1, 1, '$' ]
+// Output: [ 1, 1, 1, 1, 1, 1, '$' ]
+//
+// Input: [ 2, 2, 2, 1, 1, 1, '$' ]
+// Output: [ 2, 2, 2, 1, 1, 1, '$' ]
+//
+// Input: [ 2, 2, 2, 2, 1, 0, '$' ]
+// Output: [ 2, 2, 2, 2, 1, 0, '$' ]
+//
+// ...
