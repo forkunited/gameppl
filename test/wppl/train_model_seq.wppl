@@ -19,8 +19,8 @@ var D_test = D_split[1];
 
 var parameterPrior = function() {
     return {
-        latentDimension: gameppl.feature.getFeatureSetSize(inputf),
-        outputDimension : gameppl.feature.getFeatureSetSize(outputf),
+        latentDimension: gameppl.feature.getFeatureMatrixVocabularySize(inputF),
+        outputDimension : gameppl.feature.getFeatureMatrixVocabularySize(outputF),
         decoderType : DECODER_LINEAR,
     }
 };

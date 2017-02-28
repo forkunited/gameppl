@@ -20,7 +20,12 @@
   "keywords": [
     "webppl"
   ],
-  "author": "",
+  "author": "Bill McDowell",
+  "dependencies": {
+    "adnn": "^2.0.4",
+    "underscore": "^1.8.3",
+    "webppl-nn": "^0.0.1"
+  },
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/forkunited/gameppl/issues"

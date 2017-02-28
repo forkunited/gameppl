@@ -307,7 +307,11 @@ var computeFeatureSet = function(f, inputGameDirectory, utteranceActionFn) {
 
     rgame.readGames(inputGameDirectory, processGame);
 
-    return { name : f.name, inputGameDirectory : inputGameDirectory, utteranceActionFn : utteranceActionFn, D : featureMatrices };
+    return { name : f.name,
+        inputGameDirectory : inputGameDirectory,
+        utteranceActionFn : utteranceActionFn,
+        vocabularySize : f.size,
+        D : featureMatrices };
 };
 
 var loadFeatureSet = function(inputDirectory) {
@@ -372,6 +376,10 @@ var getFeatureSetSize = function(f) {
     return f.size;
 }
 
+var getFeatureMatrixVocabularySize = function(f) {
+    return f.vocabularySize;
+}
+
 module.exports = {
     types : types,
     symbols : symbols,
@@ -392,5 +400,6 @@ module.exports = {
     getFeatureMatrixData : getFeatureMatrixData,
     getFeatureMatrixFromDatum : getFeatureMatrixFromDatum,
     getGameFromDatum : getGameFromDatum,
-    getFeatureSetSize : getFeatureSetSize
+    getFeatureSetSize : getFeatureSetSize,
+    getFeatureMatrixVocabularySize : getFeatureMatrixVocabularySize
 };

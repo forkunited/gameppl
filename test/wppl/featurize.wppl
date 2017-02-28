@@ -55,5 +55,5 @@ gameppl.feature.saveFeatureSet(inputf, featureVocabDir + "/input");
 gameppl.feature.saveFeatureSet(outputf, featureVocabDir + "/output");
 
 gameppl.feature.saveFeatureMatrix(inputF, featureMatrixDir + "/input");
-gameppl.feature.saveFeatureMatrix(outputf, featureMatrixDir + "/output");
+gameppl.feature.saveFeatureMatrix(outputF, featureMatrixDir + "/output");
 
