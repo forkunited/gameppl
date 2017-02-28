@@ -1,0 +1,29 @@
+{
+  "name": "gameppl",
+  "version": "0.0.1",
+  "description": "Utilities for learning to play reference games in webppl",
+  "main": "src/js/library.js",
+  "webppl": {
+    "wppl": [
+      "src/wppl/learn.wppl",
+      "src/wppl/model_seq.wppl",
+      "src/wppl/util.wppl"
+    ]
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/forkunited/gameppl.git"
+  },
+  "keywords": [
+    "webppl"
+  ],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/forkunited/gameppl/issues"
+  },
+  "homepage": "https://github.com/forkunited/gameppl#readme"
+}
