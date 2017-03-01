@@ -1,0 +1,38 @@
+// Run with:
+// webppl test/wppl/train_model_seq.wppl --require webppl-nn --require . --random-seed 1 --iterations 100
+
+var args = parseArgs();
+var iterations = args["iterations"]*1;
+var batchSize = 100;
+var gradientSamples = 1;
+
+var inputF = gameppl.feature.loadFeatureMatrix("examples/features/mat/output_seq_in");
+var outputF = gameppl.feature.loadFeatureMatrix("examples/features/mat/output_seq_out");
+
+var D = makeDataFromFeatureMatrices(inputF, outputF, { inputSequence : false, outputSequence : true });
+
+var D_split = splitDataOnKey(D, 0.9, "game");
+var D_train = D_split[0];
+
+var parameterPrior = function() {
+    return {
+        latentDimension: gameppl.feature.getFeatureMatrixVocabularySize(inputF),
+        outputDimension : gameppl.feature.getFeatureMatrixVocabularySize(outputF),
+        outputStartSymbolIndex : gameppl.feature.symbols.START_SYMBOL,
+        outputTerminalSymbolIndex : gameppl.feature.symbols.TERMINAL_SYMBOL
+    }
+};
+
+var makeModel = function(params) {
+    return makeSequenceOutputModel(params);
+};
+
+var obj = makeTrainingObj(makeModel, parameterPrior,
+    {   inputSequence: true,
+        outputSequence: false,
+        batchSize: batchSize,
+        modelObserves : true
+    });
+
+train(obj, D_train, iterations, gradientSamples);
+

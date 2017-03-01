@@ -1,0 +1,3 @@
+var evaluationModelLL = function(model, D) {
+    return sum(map(function(d) { return model(d.input).score(d.output) }, D));
+};
