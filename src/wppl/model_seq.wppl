@@ -20,7 +20,7 @@ var makeEncoder = function(params) {
     return stack([
         tanh,
         bias('bias1', makeModelParam),
-        affine(params.latentDimension, 'layer1', makeModelParam)
+        affine(params.latentDimension*2, 'layer1', makeModelParam)
     ]);
 }
 
@@ -28,15 +28,15 @@ var makeEncoder = function(params) {
 // params : { latentDimension }
 var makeSequenceEncoder = function(params) {
     var makeEncoderStep = function() {
-        var enc_net = lstm(params.latentDimension, 'enc-h', makeModelParam);     // <- THIS LINE CHANGED
+        var enc_net = lstm(params.latentDimension*2, 'enc-h', makeModelParam);     // <- THIS LINE CHANGED
         return function(prevState, x) {
-            assert.ok(dims(prevState)[0] === params.latentDimension, 'Previous hidden vector has unexpected dimension');
+            assert.ok(dims(prevState)[0] === params.latentDimension*2, 'Previous hidden vector has unexpected dimension');
             var nextState = enc_net(prevState, x);    // Originally, oneHot was done here
             return nextState;
         };
     };
 
-    var initialState = makeModelParam({ name: 'enc-init', dims: [params.latentDimension, 1] });
+    var initialState = makeModelParam({ name: 'enc-init', dims: [params.latentDimension*2, 1] });
     var encoderStep = makeEncoderStep();
     var encoder = function(xs, maybeState) {
         var state = maybeState || initialState;
@@ -70,10 +70,10 @@ var makeDecoder = function(params) {
 //         opts { state, remainingSeq (sequence of vocabulary indices) }
 var makeSequenceDecoder = function(params) {
     var makeDecoderStep = function() {
-        var dec_net_h = lstm(params.latentDimension, 'dec-h', makeModelParam);  // <- THIS LINE CHANGED
+        var dec_net_h = lstm(params.latentDimension*2, 'dec-h', makeModelParam);  // <- THIS LINE CHANGED
         var dec_net_out = stack([softmax, affine(params.outputDimension, 'dec-out', makeModelParam), concat]);
         return function(x_prev, state) {
-            assert.ok(dims(state)[0] === params.latentDimension, 'Previous hidden vector has unexpected dimension');
+            assert.ok(dims(state)[0] === params.latentDimension*2, 'Previous hidden vector has unexpected dimension');
             var k = x_prev;
             var v = oneHot(k, params.outputDimension);
             var nextState = dec_net_h(state, v);                     // <- THIS LINE CHANGED
@@ -98,7 +98,8 @@ var makeSequenceDecoder = function(params) {
             var tmp = decoderStep(x_prev, state);
             var nextState = tmp.state;
             var ps = tmp.ps;
-            var observedX = remainingSeq ? remainingSeq[0] : undefined;
+            // FIXME: currently assumes sequence of singleton tensors... it's a bit dumb.  Fix later.
+            var observedX = remainingSeq ? remainingSeq[0].data[0] : undefined;
 
             var generatedX = observeHelper(Categorical({ ps : ps, vs: vocabulary }), observedX);
             return decoder({

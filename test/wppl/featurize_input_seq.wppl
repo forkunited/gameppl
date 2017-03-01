@@ -1,5 +1,5 @@
 // Run with:
-// webppl test/wppl/featurize.wppl --require . --gamesDir examples/games/json --featureVocabDir examples/features/vocab --featureMatrixDir examples/features/mat
+// webppl test/wppl/featurize_input_seq.wppl --require . --gamesDir examples/games/json --featureVocabDir examples/features/vocab --featureMatrixDir examples/features/mat
 
 var args = parseArgs();
 var gamesDir = args["gamesDir"];
@@ -12,7 +12,11 @@ var actionFn = gameppl.rgame.getPairedActionsFn(gameppl.rgame.senders.SPEAKER)
 var inputFeatureTypes = [
     {
         name : "utok", type : gameppl.feature.types.UTTERANCE_TOKEN_ANNOTATION_ENUMERABLE,
-        parameters : { annotation : gameppl.rgame.annotations.TOKEN, minCount : 5 }
+        parameters : {
+            annotation : gameppl.rgame.annotations.TOKEN,
+            minCount : 5,
+            type : gameppl.feature.enumerableTypes.ONE_HOT
+        }
     },
     {
         name : "boxX", type : gameppl.feature.types.ACTION_DIMENSION_SCALAR,
@@ -32,12 +36,15 @@ var inputFeatureTypes = [
     },
     {
         name : "boxC", type : gameppl.feature.types.ACTION_DIMENSION_ENUMERABLE,
-        parameters : { prefix : "boxC" }
+        parameters : {
+            prefix : "boxC",
+            type : gameppl.feature.enumerableTypes.ONE_HOT
+        }
     }
 ];
 
 var inputVector = ["utok", "boxX", "boxY", "boxW", "boxH", "boxC"];
-var inputf = gameppl.feature.initFeatureSet("testInput", gamesDir, utteranceFn, actionFn, inputFeatureTypes, inputVector);
+var inputf = gameppl.feature.initFeatureSet("input_seq_in", gamesDir, utteranceFn, actionFn, inputFeatureTypes, inputVector);
 var inputF = gameppl.feature.computeFeatureSet(inputf, gamesDir, gameppl.rgame.getGameUtteranceActionPairs);
 
 var outputFeatureTypes = [
@@ -48,12 +55,11 @@ var outputFeatureTypes = [
 ];
 
 var outputVector = ["mouse"];
-var outputf = gameppl.feature.initFeatureSet("testOutput", gamesDir, utteranceFn, actionFn, outputFeatureTypes, outputVector);
+var outputf = gameppl.feature.initFeatureSet("input_seq_out", gamesDir, utteranceFn, actionFn, outputFeatureTypes, outputVector);
 var outputF = gameppl.feature.computeFeatureSet(outputf, gamesDir, gameppl.rgame.getGameUtteranceActionPairs);
 
-gameppl.feature.saveFeatureSet(inputf, featureVocabDir + "/input");
-gameppl.feature.saveFeatureSet(outputf, featureVocabDir + "/output");
+gameppl.feature.saveFeatureSet(inputf, featureVocabDir + "/input_seq_in");
+gameppl.feature.saveFeatureSet(outputf, featureVocabDir + "/input_seq_out");
 
-gameppl.feature.saveFeatureMatrix(inputF, featureMatrixDir + "/input");
-gameppl.feature.saveFeatureMatrix(outputF, featureMatrixDir + "/output");
-
+gameppl.feature.saveFeatureMatrix(inputF, featureMatrixDir + "/input_seq_in");
+gameppl.feature.saveFeatureMatrix(outputF, featureMatrixDir + "/input_seq_out");

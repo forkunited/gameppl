@@ -1,15 +1,13 @@
 // Run with:
-// webppl test/wppl/train_model_seq.wppl --require webppl-nn --require . --random-seed 1 --iterations 100 --inputMatFile examples/features/mat/input --outputMatFile examples/features/mat/output
+// webppl test/wppl/train_model_seq.wppl --require webppl-nn --require . --random-seed 1 --iterations 100
 
 var args = parseArgs();
-var inputMatrices = args["inputMatFile"];
-var outputMatrices = args["outputMatFile"];
 var iterations = args["iterations"]*1;
 var batchSize = 100;
 var gradientSamples = 1;
 
-var inputF = gameppl.feature.loadFeatureMatrix("examples/features/mat/input");
-var outputF = gameppl.feature.loadFeatureMatrix("examples/features/mat/output");
+var inputF = gameppl.feature.loadFeatureMatrix("examples/features/mat/input_seq_in");
+var outputF = gameppl.feature.loadFeatureMatrix("examples/features/mat/input_seq_out");
 
 var D = makeDataFromFeatureMatrices(inputF, outputF, { inputSequence : true, outputSequence : false });
 
@@ -50,6 +48,8 @@ var Y_test = map(function(d) { return d.output; }, D_test);
 
 var trainMSE = gameppl.evaluation.sampleMSE(Y_hat_train, Y_train);
 var testMSE = gameppl.evaluation.sampleMSE(Y_hat_test, Y_test);
+var trainLL = evaluationModelLL(trainedModel, D_train);
+var testLL = evaluationModelLL(trainedModel, D_test);
 
-display("iterations\ttrainMSE\ttestMSE");
-display(iterations + "\t" + trainMSE + "\t" + testMSE);
+display("iterations\ttrainMSE\ttestMSE\ttrainLL\ttestLL");
+display(iterations + "\t" + trainMSE + "\t" + testMSE +"\t" + trainLL + "\t" + testLL);

@@ -24,10 +24,24 @@ var removeLessThan = function(c, min) {
     }
 };
 
-var buildIndex = function(c) {
+var buildIndex = function(c, fixedIndices) {
     var keys = Object.keys(c.counts).slice();
     keys.sort();
     var index = {};
+
+    // FIXME This is a slow way to do this... but
+    // it's fine for now
+    if (fixedIndices) {
+        for (var i = 0; i < keys.length; i++) {
+            if (keys[i] in fixedIndices) {
+                var index = fixedIndices[keys[i]];
+                var temp = keys[index];
+                keys[index] = keys[i];
+                keys[i] = temp;
+            }
+        }
+    }
+
     for (var i = 0; i < keys.length; i++) {
         index[keys[i]] = i;
     }

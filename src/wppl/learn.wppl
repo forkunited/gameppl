@@ -77,16 +77,9 @@ var makeTrainingObj = function(model, parameterPrior, params) {
 			if (data) {
 				mapData({ data: data, batchSize : params.batchSize}, function(datum) {
 					if (params.modelObserves)
-						applyFn(modelInstance, _.union(datum.input, datum.output))
+						applyFn(modelInstance, _.union([datum.input], [datum.output]))
 					else {
                         var dist = (params.inputSequence) ? modelInstance(datum.input) : applyFn(modelInstance, datum.input);
-						/*display(sample(dist));
-						display("Out");
-						display(datum.output);*/
-						//observe(dist, datum.output); FIXME This is how it worked before
-                    	//display(datum.output);
-                    	//display(dist);
-                    	//display(dist.score(Vector([10,10])))
 						factor(dist.score(datum.output));
 					}
 				});

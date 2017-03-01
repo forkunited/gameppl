@@ -9,8 +9,9 @@ const matrix = require('./matrix');
 var FEATURE_FILE_PREFIX = "_f.";
 
 var symbols = {
-    TERMINAL_SYMBOL : "vvv.vvv.",
-    START_SYMBOL : "^^^.^^^."
+    START_SYMBOL : 0,
+    TERMINAL_SYMBOL : 1,
+    MISSING_SYMBOL : 2
 };
 
 var types = {
@@ -18,6 +19,11 @@ var types = {
     ACTION_DIMENSION_ENUMERABLE : "actionDimensionEnumerable",
     UTTERANCE_TOKEN_ANNOTATION_SCALAR : "utteranceTokenAnnotationScalar",
     UTTERANCE_TOKEN_ANNOTATION_ENUMERABLE : "utteranceTokenAnnotationEnumerable"
+};
+
+var enumerableTypes = {
+    INDEX : "index",
+    ONE_HOT : "oneHot"
 };
 
 var initFeatureActionDimensionScalar = function(name, inputGameDirectory, utteranceFn, actionFn, parameters) {
@@ -93,12 +99,17 @@ var initFeatureActionDimensionEnumerable = function(name, inputGameDirectory, ut
 };
 
 var computeFeatureActionDimensionEnumerable = function(feature, utterance, action) {
-    var v = matrix.vectorInit(bilookup.size(feature.vocabulary));
+    var vectorSize = (feature.parameters.type == enumerableTypes.INDEX) ? 1 : bilookup.size(feature.vocabulary);
+
+    var v = matrix.vectorInit(vectorSize);
     for (var key in action) {
         var f = key + "_" + action[key];
         if (bilookup.contains(feature.vocabulary, f)) {
             var index = bilookup.get(feature.vocabulary, f);
-            matrix.vectorSet(v, index, 1);
+            if (feature.parameters.type == enumerableTypes.ONE_HOT)
+                matrix.vectorSet(v, index, 1);
+            else
+                matrix.vectorSet(v, 0, index);
         }
     }
 
@@ -124,8 +135,9 @@ var initFeatureUtteranceTokenAnnotationScalar = function(name, inputGameDirector
 
     counter.increment(c, symbols.TERMINAL_SYMBOL);
     counter.increment(c, symbols.START_SYMBOL);
+    counter.increment(c, symbols.MISSING_SYMBOL);
 
-    var bi = bilookup.init(counter.buildIndex(c));
+    var bi = bilookup.init(counter.buildIndex(c, symbols));
 
     return {
         name : name,
@@ -142,6 +154,10 @@ var initFeatureUtteranceTokenAnnotationScalar = function(name, inputGameDirector
 var computeFeatureUtteranceTokenAnnotationScalar = function(feature, utterance, action) {
     var M = matrix.matrixInit(0, bilookup.size(feature.vocabulary));
 
+    var vS = matrix.vectorInit(bilookup.size(feature.vocabulary));
+    matrix.vectorSet(vS, symbols.START_SYMBOL, 1);
+    M = matrix.matrixAddRowVector(M, vS);
+
     for (var i = 0; i < rgame.getUtteranceSentenceCount(utterance); i++) {
         for (var j = 0; j < rgame.getUtteranceSentenceTokenCount(utterance, i); j++) {
             var anno = rgame.getUtteranceTokenAnnotation(utterance, feature.parameters.annotation, i, j);
@@ -156,16 +172,9 @@ var computeFeatureUtteranceTokenAnnotationScalar = function(feature, utterance, 
         }
     }
 
-    // Add terminals
     var vT = matrix.vectorInit(bilookup.size(feature.vocabulary));
-    var index = bilookup.get(feature.vocabulary, symbols.TERMINAL_SYMBOL);
-    matrix.vectorSet(vT, index, 1);
+    matrix.vectorSet(vT, symbols.TERMINAL_SYMBOL, 1);
     M = matrix.matrixAddRowVector(M, vT);
-
-    var vS = matrix.vectorInit(bilookup.size(feature.vocabulary));
-    var index = bilookup.get(feature.vocabulary, symbols.START_SYMBOL);
-    matrix.vectorSet(vS, index, 1);
-    M = matrix.matrixAddRowVector(M, vS);
 
     return M;
 };
@@ -190,8 +199,9 @@ var initFeatureUtteranceTokenAnnotationEnumerable = function(name, inputGameDire
 
     counter.increment(c, symbols.TERMINAL_SYMBOL);
     counter.increment(c, symbols.START_SYMBOL);
+    counter.increment(c, symbols.MISSING_SYMBOL);
 
-    var bi = bilookup.init(counter.buildIndex(c));
+    var bi = bilookup.init(counter.buildIndex(c, symbols));
 
     return {
         name : name,
@@ -206,30 +216,40 @@ var initFeatureUtteranceTokenAnnotationEnumerable = function(name, inputGameDire
 };
 
 var computeFeatureUtteranceTokenAnnotationEnumerable = function(feature, utterance, action) {
-    var M = matrix.matrixInit(0, bilookup.size(feature.vocabulary));
+    var vocabularySize = (feature.parameters.type == enumerableTypes.ONE_HOT) ? bilookup.size(feature.vocabulary) : 1;
+    var M = matrix.matrixInit(0, vocabularySize);
+
+    var vS = matrix.vectorInit(bilookup.size(feature.vocabulary));
+    if (feature.parameters.type == enumerableTypes.ONE_HOT)
+        matrix.vectorSet(vS, symbols.START_SYMBOL, 1);
+    else
+        matrix.vectorSet(vS, 0, symbols.START_SYMBOL);
+    M = matrix.matrixAddRowVector(M, vS);
 
     for (var i = 0; i < rgame.getUtteranceSentenceCount(utterance); i++) {
         for (var j = 0; j < rgame.getUtteranceSentenceTokenCount(utterance, i); j++) {
             var anno = rgame.getUtteranceTokenAnnotation(utterance, feature.parameters.annotation, i, j);
             var v = matrix.vectorInit(bilookup.size(feature.vocabulary));
+            var index = symbols.MISSING_SYMBOL;
             if (bilookup.contains(feature.vocabulary, anno)) {
-                var index = bilookup.get(feature.vocabulary, anno);
-                matrix.vectorSet(v, index, 1);
+                index = bilookup.get(feature.vocabulary, anno);
             }
+
+            if (feature.parameters.type == enumerableTypes.ONE_HOT)
+                matrix.vectorSet(v, index, 1);
+            else
+                matrix.vectorSet(v, 0, index);
+
             M = matrix.matrixAddRowVector(M, v);
         }
     }
 
-    // Add terminals
     var vT = matrix.vectorInit(bilookup.size(feature.vocabulary));
-    var index = bilookup.get(feature.vocabulary, symbols.TERMINAL_SYMBOL);
-    matrix.vectorSet(vT, index, 1);
+    if (feature.parameters.type == enumerableTypes.ONE_HOT)
+        matrix.vectorSet(vT, symbols.TERMINAL_SYMBOL, 1);
+    else
+        matrix.vectorSet(vT, 0, symbols.TERMINAL_SYMBOL);
     M = matrix.matrixAddRowVector(M, vT);
-
-    var vS = matrix.vectorInit(bilookup.size(feature.vocabulary));
-    var index = bilookup.get(feature.vocabulary, symbols.START_SYMBOL);
-    matrix.vectorSet(vS, index, 1);
-    M = matrix.matrixAddRowVector(M, vS);
 
     return M;
 };
@@ -383,6 +403,7 @@ var getFeatureMatrixVocabularySize = function(f) {
 module.exports = {
     types : types,
     symbols : symbols,
+    enumerableTypes : enumerableTypes,
     initFeatureActionDimensionScalar : initFeatureActionDimensionScalar,
     computeFeatureActionDimensionScalar : computeFeatureActionDimensionScalar,
     initFeatureActionDimensionEnumerable : initFeatureActionDimensionEnumerable,
