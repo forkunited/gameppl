@@ -1,5 +1,6 @@
 var DECODER_SIGMOID = 0;
 var DECODER_LINEAR = 1;
+var DECODER_SOFTMAX = 2;
 
 var observeHelper = function(dist, val) {
     if (val !== undefined) {
@@ -56,8 +57,13 @@ var makeDecoder = function(params) {
             sigmoid,
             affine(params.outputDimension, 'dec0', makeModelParam)
         ]);
+    } else if (params.decoderType == DECODER_LINEAR) {
+        return stack([
+            affine(params.outputDimension, 'dec0', makeModelParam)
+        ]);
     } else {
         return stack([
+            softmax,
             affine(params.outputDimension, 'dec0', makeModelParam)
         ]);
     }
