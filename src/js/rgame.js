@@ -114,6 +114,11 @@ var getGameUtteranceActionPairs = function(game, sender) {
 };
 
 var getUtteranceTokenAnnotations = function(utterance, annotation) {
+    if (!(annotation in utterance[FIELD_UTTERANCE_TOKEN_ANNOTATIONS])) {
+        console.log("WARNING: Utterance " + utterance.contents + " missing annotation " + annotation);
+        return [];
+    }
+
     return utterance[FIELD_UTTERANCE_TOKEN_ANNOTATIONS][annotation];
 };
 

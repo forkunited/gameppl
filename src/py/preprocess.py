@@ -64,7 +64,11 @@ def annotate_text(text):
         print '%s: %s' % (type(text), str(text))
     try:
         if text.strip() == '':
-            return []
+            anno_obj = dict()
+            anno_obj["words"] = []
+            anno_obj["lemmas"] = []
+            anno_obj["pos"] = []
+            return anno_obj
 
         #text = str(text)
         ann = nlp.annotate(
