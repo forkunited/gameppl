@@ -1,4 +1,5 @@
 var _ = require("underscore");
+const Tensor = require("adnn/tensor");
 
 var _mapProduct = function(fn, arr1, arr2) {
     return _.flatten(
@@ -74,6 +75,25 @@ var makeObject = function(l) {
 	return _.object(l);
 }
 
+/* Vector argmax */
+
+var argmax = function(vector) {
+	var max_i = [];
+	var maxValue = -Infinity;
+	for (var i = 0; i < vector.length; i++) {
+		var value = vector.data[i];
+		if (value > maxValue) {
+			maxValue = value;
+			max_i = [];
+			max_i.push(i);
+		} else if (value == maxValue) {
+			max_i.push(i);
+		}
+	}
+
+	return max_i;
+}
+
 module.exports = {
 	areDisjoint : areDisjoint,
 	getDimension : getDimension,
@@ -81,6 +101,7 @@ module.exports = {
 	arraySwap : arraySwap,
 	objectToString : objectToString,
 	objectListToTSVString : objectListToTSVString,
-	makeObject : makeObject
+	makeObject : makeObject,
+	argmax : argmax
 }
 

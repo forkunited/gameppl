@@ -1,0 +1,6 @@
+//gameppl.util.argmax(Vector([-Infinity, 2.0, .5, 3.0, 1.0, 3.0, 5.0]));
+
+var Y_hat = [Vector([1.0, 2.0]), Vector([1.0, 2.0])];
+var Y = [Vector([1.0, 2.0]), Vector([1.0, 3.0])];
+
+gameppl.evaluation.sampleAccuracy(Y_hat, Y);

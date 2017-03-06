@@ -76,12 +76,38 @@ var sampleMSE = function(Y_hat, Y) {
         var y_i = Y[i];
         var y_hat_i = Y_hat[i];
 		var diff_i = T.sub(y_i, y_hat_i);
-		var value = T.sumreduce(T.dot(diff_i, T.transpose(diff_i)));
+		var value = T.sumreduce(T.dot(T.transpose(diff_i), diff_i));
 		total += value;
 	}
 
 	return total/Y.length;
 }
+
+var sampleAccuracy = function(Y_hat, Y) {
+    var total = 0.0;
+    for (var i = 0; i < Y.length; i++) {
+        var y_i = Y[i];
+        var y_hat_i = Y_hat[i];
+
+        // FIXME This is almost certainly the wrong way to do this.
+		// Where is the equals function?
+        if (y_i.length == y_hat_i.length) {
+        	for (var j = 0; j < y_i.length; j++) {
+        		var equal = true;
+        		if (y_i.data[j] != y_hat_i.data[j]) {
+                    equal = false;
+        			break;
+                }
+            }
+
+            if (equal)
+                total += 1.0;
+		}
+    }
+
+    return total/Y.length;
+}
+
 
 module.exports = {
 	accuracy : accuracy,
@@ -89,5 +115,6 @@ module.exports = {
 	KTD : KTD,
 	WKTD : WKTD,
     MAUC : MAUC,
-	sampleMSE : sampleMSE
+	sampleMSE : sampleMSE,
+	sampleAccuracy : sampleAccuracy
 }
