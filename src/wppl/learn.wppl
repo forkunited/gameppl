@@ -1,6 +1,6 @@
-DATA_TYPE_SEQUENCE = 0;
-DATA_TYPE_VECTOR = 1;
-DATA_TYPE_SCALAR = 2;
+const DATA_TYPE_SEQUENCE = 0;
+const DATA_TYPE_VECTOR = 1;
+const DATA_TYPE_SCALAR = 2;
 
 var makeDataInputProduct = function(distribution, samplesPerInput) {
 	var args = _.rest(arguments, 2);
@@ -42,7 +42,16 @@ var makeData = function(distribution, samplesPerInput, inputs) {
 };
 
 var makeDataFromFeatureMatrices = function(inputF, outputF, params) {
-    var outputD = gameppl.feature.getFeatureMatrixData(outputF);
+    var getDataByType = function(vectorSequence, dataType) {
+        if (dataType == DATA_TYPE_VECTOR)
+            return vectorSequence[0];
+        else if (dataType == DATA_TYPE_SCALAR) {
+        	return vectorSequence[0].data[0];
+        } else
+            return vectorSequence;
+    }
+
+	var outputD = gameppl.feature.getFeatureMatrixData(outputF);
 	return _.values(mapObject(function(id, inputf) {
 		var outputf = outputD[id];
 		var inputMat = gameppl.feature.getFeatureMatrixFromDatum(inputf);
@@ -53,17 +62,8 @@ var makeDataFromFeatureMatrices = function(inputF, outputF, params) {
         // FIXME Hack for now since tensors in js are different from tensors in wppl?
 		var outputTensors = map(function(t) { Vector(t.toFlatArray()) }, outputTensorsTemp);
 
-		var input = inputTensors;
-		if (params.inputType == DATA_TYPE_VECTOR)
-			input = inputTensors[0];
-		else if (params.inputType == DATA_TYPE_SCALAR)
-			input = inputTensors[0][0];
-
-        var output = outputTensors;
-        if (params.outputType == DATA_TYPE_VECTOR)
-            output = outputTensors[0];
-        else if (params.outputType == DATA_TYPE_SCALAR)
-            output = outputTensors[0][0];
+		var input = getDataByType(inputTensors, params.inputType);
+        var output = getDataByType(outputTensors, params.outputType);
 
 		return {
 			id : id,
@@ -96,7 +96,9 @@ var makeTrainingObj = function(model, parameterPrior, params) {
 						applyFn(modelInstance, _.union([datum.input], [datum.output]))
 					else {
                         var dist = (params.inputType == DATA_TYPE_SEQUENCE) ? modelInstance(datum.input) : applyFn(modelInstance, datum.input);
-						factor(dist.score(datum.output));
+                        //console.log(dist);
+                        //console.log(datum.output);
+                        factor(dist.score(datum.output));
 					}
 				});
 			}

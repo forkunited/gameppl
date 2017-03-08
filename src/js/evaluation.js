@@ -83,26 +83,31 @@ var sampleMSE = function(Y_hat, Y) {
 	return total/Y.length;
 }
 
-var sampleAccuracy = function(Y_hat, Y) {
+var sampleAccuracy = function(Y_hat, Y, useVectors) {
     var total = 0.0;
     for (var i = 0; i < Y.length; i++) {
         var y_i = Y[i];
         var y_hat_i = Y_hat[i];
 
-        // FIXME This is almost certainly the wrong way to do this.
-		// Where is the equals function?
-        if (y_i.length == y_hat_i.length) {
-        	for (var j = 0; j < y_i.length; j++) {
-        		var equal = true;
-        		if (y_i.data[j] != y_hat_i.data[j]) {
-                    equal = false;
-        			break;
+        if (!useVectors) {
+        	if (y_i == y_hat_i)
+        		total += 1.0;
+		} else {
+            // FIXME This is almost certainly the wrong way to do this.
+            // Where is the equals function?
+            if (y_i.length == y_hat_i.length) {
+                for (var j = 0; j < y_i.length; j++) {
+                    var equal = true;
+                    if (y_i.data[j] != y_hat_i.data[j]) {
+                        equal = false;
+                        break;
+                    }
                 }
-            }
 
-            if (equal)
-                total += 1.0;
-		}
+                if (equal)
+                    total += 1.0;
+            }
+        }
     }
 
     return total/Y.length;

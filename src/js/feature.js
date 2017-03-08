@@ -187,7 +187,10 @@ var initFeatureUtteranceTokenAnnotationEnumerable = function(name, inputGameDire
             var utt = utterances[u];
             for (var i = 0; i < rgame.getUtteranceSentenceCount(utt); i++) {
                 for (var j = 0; j < rgame.getUtteranceSentenceTokenCount(utt, i); j++) {
-                    counter.increment(c, rgame.getUtteranceTokenAnnotation(utt, parameters.annotation, i, j));
+                    var anno = rgame.getUtteranceTokenAnnotation(utt, parameters.annotation, i, j);
+                    if (parameters.toLowerCase)
+                        anno = anno.toLowerCase();
+                    counter.increment(c, anno);
                 }
             }
         }
@@ -229,6 +232,9 @@ var computeFeatureUtteranceTokenAnnotationEnumerable = function(feature, utteran
     for (var i = 0; i < rgame.getUtteranceSentenceCount(utterance); i++) {
         for (var j = 0; j < rgame.getUtteranceSentenceTokenCount(utterance, i); j++) {
             var anno = rgame.getUtteranceTokenAnnotation(utterance, feature.parameters.annotation, i, j);
+            if (feature.parameters.toLowerCase)
+                anno = anno.toLowerCase();
+
             var v = matrix.vectorInit(bilookup.size(feature.vocabulary));
             var index = symbols.MISSING_SYMBOL;
             if (bilookup.contains(feature.vocabulary, anno)) {
