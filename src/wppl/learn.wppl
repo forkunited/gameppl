@@ -1,3 +1,7 @@
+DATA_TYPE_SEQUENCE = 0;
+DATA_TYPE_VECTOR = 1;
+DATA_TYPE_SCALAR = 2;
+
 var makeDataInputProduct = function(distribution, samplesPerInput) {
 	var args = _.rest(arguments, 2);
 	return mapProductArgs(function() {
@@ -49,11 +53,23 @@ var makeDataFromFeatureMatrices = function(inputF, outputF, params) {
         // FIXME Hack for now since tensors in js are different from tensors in wppl?
 		var outputTensors = map(function(t) { Vector(t.toFlatArray()) }, outputTensorsTemp);
 
+		var input = inputTensors;
+		if (params.inputType == DATA_TYPE_VECTOR)
+			input = inputTensors[0];
+		else if (params.inputType == DATA_TYPE_SCALAR)
+			input = inputTensors[0][0];
+
+        var output = outputTensors;
+        if (params.outputType == DATA_TYPE_VECTOR)
+            output = outputTensors[0];
+        else if (params.outputType == DATA_TYPE_SCALAR)
+            output = outputTensors[0][0];
+
 		return {
 			id : id,
 			game : gameppl.feature.getGameFromDatum(outputf),
-			input : (params.inputSequence) ? inputTensors : inputTensors[0],
-			output : (params.outputSequence) ? outputTensors : outputTensors[0]};
+			input : input,
+			output : output };
 	}, gameppl.feature.getFeatureMatrixData(inputF)));
 };
 
@@ -79,7 +95,7 @@ var makeTrainingObj = function(model, parameterPrior, params) {
 					if (params.modelObserves)
 						applyFn(modelInstance, _.union([datum.input], [datum.output]))
 					else {
-                        var dist = (params.inputSequence) ? modelInstance(datum.input) : applyFn(modelInstance, datum.input);
+                        var dist = (params.inputType == DATA_TYPE_SEQUENCE) ? modelInstance(datum.input) : applyFn(modelInstance, datum.input);
 						factor(dist.score(datum.output));
 					}
 				});

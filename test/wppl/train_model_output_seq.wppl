@@ -9,7 +9,7 @@ var gradientSamples = 1;
 var inputF = gameppl.feature.loadFeatureMatrix("examples/features/mat/output_seq_in");
 var outputF = gameppl.feature.loadFeatureMatrix("examples/features/mat/output_seq_out");
 
-var D = makeDataFromFeatureMatrices(inputF, outputF, { inputSequence : false, outputSequence : true });
+var D = makeDataFromFeatureMatrices(inputF, outputF, { inputType : DATA_TYPE_VECTOR, outputType : DATA_TYPE_SEQUENCE });
 
 var D_split = splitDataOnKey(D, 0.9, "game");
 var D_train = D_split[0];
@@ -28,8 +28,8 @@ var makeModel = function(params) {
 };
 
 var obj = makeTrainingObj(makeModel, parameterPrior,
-    {   inputSequence: true,
-        outputSequence: false,
+    {   inputType: DATA_TYPE_VECTOR,
+        outputType: DATA_TYPE_SEQUENCE,
         batchSize: batchSize,
         modelObserves : true
     });
