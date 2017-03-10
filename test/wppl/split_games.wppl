@@ -1,0 +1,10 @@
+//webppl --require . test/wppl/split_games.wppl --gamesDir <inDir> --outputPath <outFile> --split [0.6,0.2,0.2]
+
+var args = parseArgs();
+var split = JSON.parse(args["split"]);
+var gamesDir = args["gamesDir"];
+var outputPath = args["outputPath"];
+
+var games = gameppl.rgame.readGames(gamesDir);
+var split = gameppl.partition.init(games, gameppl.rgame.getGameId, ["train", "dev", "test"], split);
+gameppl.partition.save(split, outputPath);
