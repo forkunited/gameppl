@@ -222,11 +222,51 @@ var computeFeatureUtteranceTokenAnnotationEnumerable = function(feature, utteran
     var vocabularySize = (feature.parameters.type == enumerableTypes.ONE_HOT) ? bilookup.size(feature.vocabulary) : 1;
     var M = matrix.matrixInit(0, vocabularySize);
 
-    var vS = matrix.vectorInit(bilookup.size(feature.vocabulary));
+    var vS = matrix.vectorInit(vocabularySize);
     if (feature.parameters.type == enumerableTypes.ONE_HOT)
         matrix.vectorSet(vS, symbols.START_SYMBOL, 1);
     else
         matrix.vectorSet(vS, 0, symbols.START_SYMBOL);
+    M = matrix.matrixAddRowVector(M, vS);
+
+    for (var i = 0; i < rgame.getUtteranceSentenceCount(utterance); i++) {
+        for (var j = 0; j < rgame.getUtteranceSentenceTokenCount(utterance, i); j++) {
+            var anno = rgame.getUtteranceTokenAnnotation(utterance, feature.parameters.annotation, i, j);
+            if (feature.parameters.toLowerCase)
+                anno = anno.toLowerCase();
+
+            var v = matrix.vectorInit(vocabularySize);
+            var index = symbols.MISSING_SYMBOL;
+            if (bilookup.contains(feature.vocabulary, anno)) {
+                index = bilookup.get(feature.vocabulary, anno);
+            }
+
+            if (feature.parameters.type == enumerableTypes.ONE_HOT)
+                matrix.vectorSet(v, index, 1);
+            else
+                matrix.vectorSet(v, 0, index);
+
+            M = matrix.matrixAddRowVector(M, v);
+        }
+    }
+
+    var vT = matrix.vectorInit(vocabularySize);
+    if (feature.parameters.type == enumerableTypes.ONE_HOT)
+        matrix.vectorSet(vT, symbols.TERMINAL_SYMBOL, 1);
+    else
+        matrix.vectorSet(vT, 0, symbols.TERMINAL_SYMBOL);
+    M = matrix.matrixAddRowVector(M, vT);
+
+    return M;
+};
+
+
+/*var computeFeatureUtteranceTokenAnnotationW2V = function(feature, utterance, action) {
+    var vSize = feature.vectorDim;
+    var M = matrix.matrixInit(0, vSize);
+
+    var vS = matrix.vectorInit(vSize);
+    matrix.vectorSet(vS, symbols.START_SYMBOL, 1);
     M = matrix.matrixAddRowVector(M, vS);
 
     for (var i = 0; i < rgame.getUtteranceSentenceCount(utterance); i++) {
@@ -250,15 +290,12 @@ var computeFeatureUtteranceTokenAnnotationEnumerable = function(feature, utteran
         }
     }
 
-    var vT = matrix.vectorInit(bilookup.size(feature.vocabulary));
-    if (feature.parameters.type == enumerableTypes.ONE_HOT)
-        matrix.vectorSet(vT, symbols.TERMINAL_SYMBOL, 1);
-    else
-        matrix.vectorSet(vT, 0, symbols.TERMINAL_SYMBOL);
+    var vT = matrix.vectorInit(vSize);
+    matrix.vectorSet(vT, symbols.TERMINAL_SYMBOL, 1);
     M = matrix.matrixAddRowVector(M, vT);
 
     return M;
-};
+};*/
 
 var initFeatureSet = function(name, inputGameDirectory, utteranceFn, actionFn, featureTypes, vector) {
     var features = {};

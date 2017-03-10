@@ -11,9 +11,9 @@ module.exports = {
 	util : util,
 	counter : counter,
 	bilookup : bilookup,
-    matrix : matrix,
+	matrix : matrix,
 	rgame : rgame,
 	feature : feature,
-    dist : dist,
+	dist : dist,
 	evaluation : evaluation
 }

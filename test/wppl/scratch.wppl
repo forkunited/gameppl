@@ -1,6 +1,10 @@
+//var w2v = require( 'word2vec' );
+
 //gameppl.util.argmax(Vector([-Infinity, 2.0, .5, 3.0, 1.0, 3.0, 5.0]));
 
-var Y_hat = [Vector([1.0, 2.0]), Vector([1.0, 2.0])];
-var Y = [Vector([1.0, 2.0]), Vector([1.0, 3.0])];
+//w2v.loadModel("../../../data/nlp/w2v/glove.6B.50d.txt", function(error, model) {
+//    console.log(model);
+//});
 
-gameppl.evaluation.sampleAccuracy(Y_hat, Y);
+var model = gameppl.util.loadW2VModel("../data/nlp/w2v/glove.6B.50d.txt");
+display(model);
