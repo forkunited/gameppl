@@ -24,7 +24,8 @@
   "author": "Bill McDowell",
   "dependencies": {
     "adnn": "^2.0.4",
-    "underscore": "^1.8.3"
+    "underscore": "^1.8.3",
+    "word2vec": "^1.1.0"
   },
   "license": "MIT",
   "bugs": {
