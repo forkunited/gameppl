@@ -2,9 +2,11 @@
 
 //gameppl.util.argmax(Vector([-Infinity, 2.0, .5, 3.0, 1.0, 3.0, 5.0]));
 
-//w2v.loadModel("../../../data/nlp/w2v/glove.6B.50d.txt", function(error, model) {
-//    console.log(model);
-//});
+var model = gameppl.w2v.getModel("../data/nlp/w2v/glove.6B.50d.txt");
 
-var model = gameppl.util.loadW2VModel("../data/nlp/w2v/glove.6B.50d.txt");
-display(model);
+//var model = gameppl.util.loadW2VModel("../data/nlp/w2v/glove.6B.50d.txt");
+//display(model);
+display(model.getVector("king"));
+
+model.getVector("king").values;
+

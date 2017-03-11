@@ -1,4 +1,5 @@
 var util = require("./util");
+var w2v = require("./w2v");
 var counter = require("./counter");
 var bilookup = require("./bilookup");
 var partition = require("./partition");
@@ -11,13 +12,14 @@ var evaluation = require("./evaluation");
 
 module.exports = {
 	util : util,
+	w2v : w2v,
 	counter : counter,
 	bilookup : bilookup,
 	partition : partition,
-    matrix : matrix,
+	matrix : matrix,
 	rgame : rgame,
 	data : data,
 	feature : feature,
-    dist : dist,
+	dist : dist,
 	evaluation : evaluation
 }

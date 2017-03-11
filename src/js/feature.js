@@ -5,9 +5,11 @@ const counter = require('./counter');
 const bilookup = require('./bilookup');
 const rgame = require('./rgame');
 const matrix = require('./matrix');
+const w2v = require('./w2v');
 
 var FEATURE_FILE_PREFIX = "_f.";
 
+var FIXED_SYMBOL_COUNT = 3;
 var symbols = {
     START_SYMBOL : 0,
     TERMINAL_SYMBOL : 1,
@@ -18,7 +20,8 @@ var types = {
     ACTION_DIMENSION_SCALAR : "actionDimensionScalar",
     ACTION_DIMENSION_ENUMERABLE : "actionDimensionEnumerable",
     UTTERANCE_TOKEN_ANNOTATION_SCALAR : "utteranceTokenAnnotationScalar",
-    UTTERANCE_TOKEN_ANNOTATION_ENUMERABLE : "utteranceTokenAnnotationEnumerable"
+    UTTERANCE_TOKEN_ANNOTATION_ENUMERABLE : "utteranceTokenAnnotationEnumerable",
+    UTTERANCE_TOKEN_ANNOTATION_W2V : "utteranceTokenAnnotationW2V"
 };
 
 var enumerableTypes = {
@@ -260,8 +263,21 @@ var computeFeatureUtteranceTokenAnnotationEnumerable = function(feature, utteran
     return M;
 };
 
+var initFeatureUtteranceTokenAnnotationW2V = function(name, inputGameDirectory, utteranceFn, actionFn, parameters) {
+    var model = w2v.getModel(feature.parameters.modelFile);
 
-/*var computeFeatureUtteranceTokenAnnotationW2V = function(feature, utterance, action) {
+    return {
+        name : name,
+        type : types.UTTERANCE_TOKEN_ANNOTATION_W2V,
+        inputGameDirectory : inputGameDirectory,
+        utteranceFn : utteranceFn.toString(),
+        actionFn : actionFn.toString(),
+        parameters : parameters,
+        size : model.size + FIXED_SYMBOL_COUNT
+    }
+};
+
+var computeFeatureUtteranceTokenAnnotationW2V = function(feature, utterance, action) {
     var vSize = feature.vectorDim;
     var M = matrix.matrixInit(0, vSize);
 
@@ -269,22 +285,22 @@ var computeFeatureUtteranceTokenAnnotationEnumerable = function(feature, utteran
     matrix.vectorSet(vS, symbols.START_SYMBOL, 1);
     M = matrix.matrixAddRowVector(M, vS);
 
+    var model = w2v.getModel(feature.parameters.modelFile);
+
     for (var i = 0; i < rgame.getUtteranceSentenceCount(utterance); i++) {
         for (var j = 0; j < rgame.getUtteranceSentenceTokenCount(utterance, i); j++) {
             var anno = rgame.getUtteranceTokenAnnotation(utterance, feature.parameters.annotation, i, j);
-            if (feature.parameters.toLowerCase)
-                anno = anno.toLowerCase();
+            anno = anno.toLowerCase();
 
-            var v = matrix.vectorInit(bilookup.size(feature.vocabulary));
-            var index = symbols.MISSING_SYMBOL;
-            if (bilookup.contains(feature.vocabulary, anno)) {
-                index = bilookup.get(feature.vocabulary, anno);
+            var v = matrix.vectorInit(vSize);
+            if (model.getVector(v) != null) {
+                vector = model.getVector(anno).values;
+                for (var vec_i = 0; vec_i < vector.length; vec_i++) {
+                    matrix.vectorSet(v, FIXED_SYMBOL_COUNT + vec_i, vector[vec_i]);
+                }
+            } else {
+                matrix.vectorSet(v, symbols.MISSING_SYMBOL, 1);
             }
-
-            if (feature.parameters.type == enumerableTypes.ONE_HOT)
-                matrix.vectorSet(v, index, 1);
-            else
-                matrix.vectorSet(v, 0, index);
 
             M = matrix.matrixAddRowVector(M, v);
         }
@@ -295,7 +311,7 @@ var computeFeatureUtteranceTokenAnnotationEnumerable = function(feature, utteran
     M = matrix.matrixAddRowVector(M, vT);
 
     return M;
-};*/
+};
 
 var initFeatureSet = function(name, inputGameDirectory, utteranceFn, actionFn, featureTypes, vector) {
     var features = {};
@@ -315,6 +331,9 @@ var initFeatureSet = function(name, inputGameDirectory, utteranceFn, actionFn, f
             features[fname] = feature;
         } else if (ftype == types.UTTERANCE_TOKEN_ANNOTATION_ENUMERABLE) {
             var feature = initFeatureUtteranceTokenAnnotationEnumerable(fname, inputGameDirectory, utteranceFn, actionFn, fparameters);
+            features[fname] = feature;
+        } else if (ftype == types.UTTERANCE_TOKEN_ANNOTATION_W2V) {
+            var feature = initFeatureUtteranceToeknAnnotationW2V(fname, inputGameDirectory, utteranceFn, actionFn, fparameters);
             features[fname] = feature;
         }
 
@@ -359,6 +378,9 @@ var computeFeatureSet = function(f, inputGameDirectory, utteranceActionFn) {
                     F = matrix.matrixRowProductCat(F, M);
                 } else if (feature.type == types.UTTERANCE_TOKEN_ANNOTATION_ENUMERABLE) {
                     var M = computeFeatureUtteranceTokenAnnotationEnumerable(feature, utterance, action);
+                    F = matrix.matrixRowProductCat(F, M);
+                } else if (feature.type == types.UTTERANCE_TOKEN_ANNOTATION_W2V) {
+                    var M = computeFeatureUtteranceTokenAnnotationW2V(feature, utterance, action);
                     F = matrix.matrixRowProductCat(F, M);
                 }
             }
@@ -455,6 +477,8 @@ module.exports = {
     computeFeatureUtteranceTokenAnnotationScalar : computeFeatureUtteranceTokenAnnotationScalar,
     initFeatureUtteranceTokenAnnotationEnumerable : initFeatureUtteranceTokenAnnotationEnumerable,
     computeFeatureUtteranceTokenAnnotationEnumerable : computeFeatureUtteranceTokenAnnotationEnumerable,
+    initFeatureUtteranceTokenAnnotationW2V : initFeatureUtteranceTokenAnnotationW2V,
+    computeFeatureUtteranceTokenAnnotationW2V : computeFeatureUtteranceTokenAnnotationW2V,
     initFeatureSet : initFeatureSet,
     computeFeatureSet : computeFeatureSet,
     loadFeatureSet : loadFeatureSet,
