@@ -264,7 +264,7 @@ var computeFeatureUtteranceTokenAnnotationEnumerable = function(feature, utteran
 };
 
 var initFeatureUtteranceTokenAnnotationW2V = function(name, inputGameDirectory, utteranceFn, actionFn, parameters) {
-    var model = w2v.getModel(feature.parameters.modelFile);
+    var model = w2v.getModel(parameters.modelFile);
 
     return {
         name : name,
@@ -333,7 +333,7 @@ var initFeatureSet = function(name, inputGameDirectory, utteranceFn, actionFn, f
             var feature = initFeatureUtteranceTokenAnnotationEnumerable(fname, inputGameDirectory, utteranceFn, actionFn, fparameters);
             features[fname] = feature;
         } else if (ftype == types.UTTERANCE_TOKEN_ANNOTATION_W2V) {
-            var feature = initFeatureUtteranceToeknAnnotationW2V(fname, inputGameDirectory, utteranceFn, actionFn, fparameters);
+            var feature = initFeatureUtteranceTokenAnnotationW2V(fname, inputGameDirectory, utteranceFn, actionFn, fparameters);
             features[fname] = feature;
         }
 
