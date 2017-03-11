@@ -278,7 +278,7 @@ var initFeatureUtteranceTokenAnnotationW2V = function(name, inputGameDirectory, 
 };
 
 var computeFeatureUtteranceTokenAnnotationW2V = function(feature, utterance, action) {
-    var vSize = feature.vectorDim;
+    var vSize = feature.size;
     var M = matrix.matrixInit(0, vSize);
 
     var vS = matrix.vectorInit(vSize);
@@ -293,7 +293,7 @@ var computeFeatureUtteranceTokenAnnotationW2V = function(feature, utterance, act
             anno = anno.toLowerCase();
 
             var v = matrix.vectorInit(vSize);
-            if (model.getVector(v) != null) {
+            if (model.getVector(anno) != null) {
                 vector = model.getVector(anno).values;
                 for (var vec_i = 0; vec_i < vector.length; vec_i++) {
                     matrix.vectorSet(v, FIXED_SYMBOL_COUNT + vec_i, vector[vec_i]);

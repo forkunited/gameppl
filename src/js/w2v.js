@@ -36,8 +36,8 @@ var loadModel = function(filePath) {
 
 		if (counter === 0) {
 			arr = line.split( ' ' );
-			words = arr[0];
-			size = arr[1];
+			words = parseInt(arr[0]);
+			size = parseInt(arr[1]);
 			if( isNaN(words) || isNaN(size) ) {
 				throw new Error( 'First line of text file has to be <number of words> <length of vector>.' );
 			}
