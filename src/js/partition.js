@@ -1,8 +1,8 @@
 const _ = require('underscore');
 const fs = require('fs');
 
-var init = function(D, fn, partNames, partSizes) {
-    var partition = { size : D.length, parts : {}};
+var init = function(D, fn, partNames, partSizes, keepD) {
+    var partition = { keepD : keepD, size : D.length, parts : {}};
 
     var curIndex = 0;
     for (var i = 0; i < partSizes.length; i++) {
@@ -11,7 +11,15 @@ var init = function(D, fn, partNames, partSizes) {
         var nextMax = Math.min(partSize * D.length + curIndex, D.length);
         partition.parts[partName] = {};
         while (curIndex < nextMax) {
-            partition.parts[partName][fn(D[curIndex])] = 1;
+            if (!keepD) {
+                partition.parts[partName][fn(D[curIndex])] = 1;
+            } else {
+                var k = fn(D[curIndex]);
+                if (!(k in partition.parts[partName]))
+                    partition.parts[partName][k] = [D[curIndex]];
+                else
+                    partition.parts[partName][k].push(D[curIndex]);
+            }
             curIndex++;
         }
     }
@@ -58,6 +66,34 @@ var split = function(part, D, fn) {
             }
         }
     }
+};
+
+var mapKeysAndValues = function(part, keyFn, valueFn) {
+    var newParts = {};
+    for (var name in part.parts) {
+        var keyValues = _.pairs(part.parts[name]);
+        var newPart = {};
+        for (var i = 0; i < keyValues.length; i++) {
+            if (!part.keepD) {
+                var key = keyFn(keyValues[i][0]);
+                newPart[key] = 1;
+            } else {
+                for (var j = 0; j <keyValues[i][1].length; j++) {
+                    var key = keyFn(keyValues[i][0],keyValues[i][1][j]);
+                    var value = valueFn(keyValues[i][0], keyValues[i][1][j]);
+                    if (!(key in newPart)) {
+                        newPart[key] = [value];
+                    } else {
+                        newPart[key].push(value);
+                    }
+                }
+            }
+        }
+
+        newParts[name] = newPart;
+    }
+
+    part.parts = newParts;
 }
 
 module.exports = {
@@ -68,5 +104,6 @@ module.exports = {
     getPartNames : getPartNames,
     partContains : partContains,
     size : size,
-    split : split
+    split : split,
+    mapKeysAndValues : mapKeysAndValues
 };
