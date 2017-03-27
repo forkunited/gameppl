@@ -2,18 +2,8 @@ var DECODER_SIGMOID = 0;
 var DECODER_LINEAR = 1;
 var DECODER_SOFTMAX = 2;
 
-var observeHelper = function(dist, val) {
-    if (val !== undefined) {
-        factor(dist.score(val));
-        return val;
-    } else {
-        return sample(dist, {
-            guide: function() {
-                return dist; // prevent auto-guide in Forward; always use model dist
-            }
-        });
-    }
-};
+var SEQUENCE_DECODER_LAZY_LSTM_CATEGORICAL = 0;
+var SEQUENCE_DECODER_GREEDY_BEAM_CATEGORICAL = 1;
 
 var makeModelParam = param; // modelParamL2(10);
 
@@ -74,15 +64,28 @@ var makeDecoder = function(params) {
 // returns decoder
 //     Decoder
 //         opts { state, remainingSeq (sequence of vocabulary indices) }
-var makeSequenceDecoder = function(params) {
+var makeSequenceDecoder_LLC = function(params) {
+    var observeHelper = function(dist, val) {
+        if (val !== undefined) {
+            factor(dist.score(val));
+            return val;
+        } else {
+            return sample(dist, {
+                guide: function() {
+                    return dist; // prevent auto-guide in Forward; always use model dist
+                }
+            });
+        }
+    };
+
     var makeDecoderStep = function() {
-        var dec_net_h = lstm(params.latentDimension*2, 'dec-h', makeModelParam);  // <- THIS LINE CHANGED
+        var dec_net_h = lstm(params.latentDimension*2, 'dec-h', makeModelParam);
         var dec_net_out = stack([softmax, affine(params.outputDimension, 'dec-out', makeModelParam), concat]);
         return function(x_prev, state) {
             assert.ok(dims(state)[0] === params.latentDimension*2, 'Previous hidden vector has unexpected dimension');
             var k = x_prev;
             var v = oneHot(k, params.outputDimension);
-            var nextState = dec_net_h(state, v);                     // <- THIS LINE CHANGED
+            var nextState = dec_net_h(state, v);
             var ps = dec_net_out([nextState, v]);
             return { ps : ps, state: nextState }
         };
@@ -104,7 +107,16 @@ var makeSequenceDecoder = function(params) {
             var tmp = decoderStep(x_prev, state);
             var nextState = tmp.state;
             var ps = tmp.ps;
-            // FIXME: currently assumes sequence of singleton tensors... it's a bit dumb.  Fix later.
+
+            // NOTE: The observations (output sequences) are currently assumed to be sequences of
+            // singleton tensors.  This is why we messily index into data[0] below.
+            //
+            // The motivation for this messiness is that the current implementation
+            // assumes for simplicity that outputs
+            // are always tensors.  This will make it easy in the
+            // future if we want to have a decorder
+            // that decodes sequences of vectors (e.g. word2vec vectors) rather than sequences
+            // of single index values.
             var observedX = remainingSeq ? remainingSeq[0].data[0] : undefined;
 
             var generatedX = observeHelper(Categorical({ ps : ps, vs: vocabulary }), observedX);
@@ -119,6 +131,56 @@ var makeSequenceDecoder = function(params) {
     return decoder;
 };
 
+var makeSequenceDecoder_GBC = function(params) {
+    var f = params.decoderStepFn; // (state x input) -> (next state, (value, score, heuristic, fixed, terminal) list)
+    var B = params.B; // Beam size
+
+    var Decoder = function(states, seqs, scores, k) {
+        var nextScores = _.flatten(mapIndexed(
+            function(index, state) {
+                var seq = seqs[index];
+                var score = scores[index];
+                var nextStateAndOutputs = f(state, seq);
+                var nextState = nextStateAndOutputs.state;
+
+                return map(function(output) {
+                    var nextOutput = output.value;
+                    var nextScore = output.score + score;
+                    var nextHeuristicScore = output.heuristic + output.score + score;
+                    var fixed = output.fixed;
+                    var terminal = output.terminal;
+
+                    return { index : index,
+                             nextState : nextState,
+                             nextOutput : nextOutput,
+                             nextScore : nextScore,
+                             nextHeuristicScore : nextHeuristicScore,
+                             fixed : fixed,
+                             terminal : terminal
+                    };
+                }, nextStateAndOutputs.outputs);
+        }, states));
+
+        var sortedNextScores = sort(nextScores, gt, function(obj) { (obj.fixed) ? Infinity : obj.nextHeuristicScore });
+        var nextBeam = _.first(sortedNextScores, B);
+
+        // Make next states, seqs, scores
+        // Check all terminated
+        var nextStates = map(function(o) { o.nextState }, nextBeam);
+        var nextSeqs = map(function(o) { seqs[o.index].concat(o.nextOutput) }, nextBeam);
+        var nextScores = map(function(o) { o.nextScore }, nextBeam);
+        var allTerminal = all(function(o) { o.terminal }, nextBeam);
+
+        if (k === 0 || allTerminal) {
+            return Categorical({ vs : nextSeqs , ps : nextScores});
+        } else {
+            return Decoder(nextStates, nextSeqs, nextScores, k-1);
+        }
+    };
+
+    return Decoder;
+};
+
 var makeSequenceInputModel = function(params) {
     var encoder = makeSequenceEncoder(params);
     var decoder = makeDecoder(params);
@@ -131,54 +193,19 @@ var makeSequenceInputModel = function(params) {
 
 var makeSequenceOutputModel = function(params) {
     var encoder = makeEncoder(params);
-    var decoder = makeSequenceDecoder(params);
 
-    return function(datum, observation) {
-        var state = encoder(datum);
-        return decoder({state : state, remainingSeq : observation });
+    if (params.decoderType === SEQUENCE_DECODER_LAZY_LSTM_CATEGORICAL) {
+        // NOTE: This model observes in training
+        var decoder = makeSequenceDecoder_LLC(params);
+        return function (datum, observation) {
+            var state = encoder(datum);
+            return decoder({state: state, remainingSeq: observation});
+        }
+    } else if (params.decoderType === SEQUENCE_DECODER_GREEDY_BEAM_CATEGORICAL) {
+        var decoder = makeSequenceDecorder_GBC(params);
+        return function (datum) {
+            var state = encoder(datum);
+            return decoder(state);
+        }
     }
 }
-
-/*
-var encoder = makeEncoder();
-var decoder = makeDecoder(6);
-
-Optimize({
-    model : function() {
-        mapData({ data : data }, function(datum) {
-            var state = encoder(datum);
-            decoder({ state : state, remainingSeq: datum });
-        });
-    },
-    steps: 1000,
-    optMethod: { adam: { stepSize: .01 }}
-});
-
-map(function(datum) {
-    var state = encoder(datum);
-    console.log('Input:', datum);
-    // console.log('Latent:', _.flatten(state.toArray()));
-    console.log('Output:', decoder({ state : state }));
-    console.log();
-}, data)
-
-'done'
-*/
-// Output:
-//
-// Input: [ 0, 0, 0, 0, 0, 0, '$' ]
-// Output: [ 0, 0, 0, 0, 0, 0, '$' ]
-//
-// Input: [ 1, 1, 1, 0, 0, 0, '$' ]
-// Output: [ 1, 1, 1, 0, 0, 0, '$' ]
-//
-// Input: [ 1, 1, 1, 1, 1, 1, '$' ]
-// Output: [ 1, 1, 1, 1, 1, 1, '$' ]
-//
-// Input: [ 2, 2, 2, 1, 1, 1, '$' ]
-// Output: [ 2, 2, 2, 1, 1, 1, '$' ]
-//
-// Input: [ 2, 2, 2, 2, 1, 0, '$' ]
-// Output: [ 2, 2, 2, 2, 1, 0, '$' ]
-//
-// ...

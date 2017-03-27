@@ -58,8 +58,9 @@ var makeDataFromFeatureMatrices = function(inputF, outputF, params) {
 		var outputMat = gameppl.feature.getFeatureMatrixFromDatum(outputf);
 
 		var inputTensors = gameppl.matrix.matrixToRowTensorList(inputMat);
-		var outputTensorsTemp = gameppl.matrix.matrixToRowTensorList(outputMat);
+
         // FIXME Hack for now since tensors in js are different from tensors in wppl?
+		var outputTensorsTemp = gameppl.matrix.matrixToRowTensorList(outputMat);
 		var outputTensors = map(function(t) { Vector(t.toFlatArray()) }, outputTensorsTemp);
 
 		var input = getDataByType(inputTensors, params.inputType);
@@ -96,9 +97,11 @@ var makeTrainingObj = function(model, parameterPrior, params) {
 						applyFn(modelInstance, _.union([datum.input], [datum.output]))
 					else {
                         var dist = (params.inputType == DATA_TYPE_SEQUENCE) ? modelInstance(datum.input) : applyFn(modelInstance, datum.input);
+
                         //console.log(dist);
                         //console.log(datum.output);
-                        factor(dist.score(datum.output));
+
+						factor(dist.score(datum.output));
 					}
 				});
 			}
