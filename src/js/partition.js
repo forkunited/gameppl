@@ -16,7 +16,17 @@ var init = function(D, fn, partNames, partSizes, keepD) {
     for (var i = 0; i < partSizes.length; i++) {
         partName = partNames[i];
         partSize = partSizes[i];
-        var nextMax = Math.min(partSize * keys.length + curIndex, keys.length);
+
+        //var nextMax = Math.min(partSize * keys.length + curIndex, keys.length);
+        // NOTE: This can be written more simply
+        var dCount = 0;
+        var j = curIndex;
+        while (dCount < partSize * D.length && j < keys.length) {
+            dCount += D_key[keys[j]].length;
+            j++;
+        }
+        var nextMax = j;
+
         partition.parts[partName] = {};
         while (curIndex < nextMax) {
             if (!keepD) {
