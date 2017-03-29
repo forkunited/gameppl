@@ -2,23 +2,27 @@ const _ = require('underscore');
 const fs = require('fs');
 
 var init = function(D, fn, partNames, partSizes, keepD) {
-    var partition = { keepD : keepD, size : D.length, parts : {}};
+    var D_key = {};
+    for (var i = 0; i < D.length; i++) {
+        var k = fn(D[i]);
+        if (!(k in D_key))
+            D_key[k] = [];
+        D_key[k].push(D[i]);
+    }
 
+    var keys = _.keys(D_key);
+    var partition = { keepD : keepD, size : D.length, parts : {}};
     var curIndex = 0;
     for (var i = 0; i < partSizes.length; i++) {
         partName = partNames[i];
         partSize = partSizes[i];
-        var nextMax = Math.min(partSize * D.length + curIndex, D.length);
+        var nextMax = Math.min(partSize * keys.length + curIndex, keys.length);
         partition.parts[partName] = {};
         while (curIndex < nextMax) {
             if (!keepD) {
-                partition.parts[partName][fn(D[curIndex])] = 1;
+                partition.parts[partName][keys[curIndex]] = 1;
             } else {
-                var k = fn(D[curIndex]);
-                if (!(k in partition.parts[partName]))
-                    partition.parts[partName][k] = [D[curIndex]];
-                else
-                    partition.parts[partName][k].push(D[curIndex]);
+                partition.parts[partName][keys[curIndex]] = D_key[keys[curIndex]];
             }
             curIndex++;
         }
