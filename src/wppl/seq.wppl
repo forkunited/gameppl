@@ -1,0 +1,109 @@
+// makeSequenceEncoder
+// Repeats an encoder step until input is completely digested
+//
+// encoderStepFn : state x input -> next state
+// initialState : initial latent state
+var makeSequenceEncoder = function(encoderStepFn, initialState) {
+    var encoder = function(xs, maybeState) {
+        var state = maybeState || initialState;
+        if (xs.length === 0) {
+            return state;
+        } else {
+            var nextState = encoderStepFn(state, xs[0]);
+            return encoder(xs.slice(1), nextState);
+        }
+    };
+
+    return encoder;
+};
+
+// makeSequenceSampleDecoder
+//
+// decoderStepFn : (state x (input seq)) -> (next state, (value, score, fixed, terminal) list)
+// distributionFn : (score, value) list, [observation] -> (next symbol, terminal?) sampled from distribution
+// initialState : Initial latent state
+// startSymbol : Start symbol for sequences
+// maxLength : Maximum sequence length
+var makeSequenceSampleDecoder = function(decoderStepFn, distributionFn, initialState, startSymbol, maxLength) {
+    var decoder = function(maybeState, maybeSeq, maybeObs, maybeK) {
+        var state = maybeState || initialState;
+        var seq = maybeSeq || [startSymbol];
+        var remainingObs = maybeObs;
+        var k = maybeK || maxLength;
+
+        var nextStateAndOutputs = decoderStepFn(state, seq);
+        var nextState = nextStateAndOutputs.state;
+
+        var nextSym = distributionFn(nextStateAndOutputs.outputs, remainingObs ? remainingObs[0] : undefined);
+        var nextSeq = seq.concat([ nextSym.sym ]);
+        var nextObs = remainingObs ? remainingObs.slice(1) : undefined;
+
+        if (maxLength <= 1 || k === 1 || nextSym.terminal ) {
+            return nextSeq;
+        } else {
+            return decoder(nextState, nextSeq, nextObs, k-1);
+        }
+    };
+
+    return decoder;
+};
+
+
+// makeSequenceBeamDecoder
+//
+// decoderStepFn : (state x (input seq)) -> (next state, (value, score, heuristic, fixed, terminal) list)
+// B : Beam size
+// initialState : Initial latent state
+// startSymbol : Start symbol for sequences
+// maxLength : Maximum sequence length
+var makeSequenceBeamDecoder = function(decoderStepFn, B, initialState, startSymbol, maxLength) {
+    var decoder = function(maybeStates, maybeSeqs, maybeScores, maybeK) {
+        var states = maybeStates || [initialState];
+        var seqs = maybeSeqs || repeat(states.length, function() { [ startSymbol ] });
+        var scores = maybeScores || repeat(seqs.length, function() { 0.0 });
+        var k = maybeK || maxLength;
+
+        var nextScores = _.flatten(mapIndexed(
+            function(index, state) {
+                var seq = seqs[index];
+                var score = scores[index];
+                var nextStateAndOutputs = decoderStepFn(state, seq);
+                var nextState = nextStateAndOutputs.state;
+
+                return map(function(output) {
+                    var nextOutput = output.value;
+                    var nextScore = output.score + score;
+                    var nextHeuristicScore = output.heuristic + output.score + score;
+                    var fixed = output.fixed;
+                    var terminal = output.terminal;
+
+                    return { index : index,
+                             nextState : nextState,
+                             nextOutput : nextOutput,
+                             nextScore : nextScore,
+                             nextHeuristicScore : nextHeuristicScore,
+                             fixed : fixed,
+                             terminal : terminal
+                    };
+                }, nextStateAndOutputs.outputs);
+        }, states));
+
+        var sortedNextScores = sort(nextScores, gt, function(obj) { (obj.fixed) ? Infinity : obj.nextHeuristicScore });
+        var nextBeam = _.first(sortedNextScores, B);
+
+        // Make next states, seqs, scores
+        // Check all terminated
+        var nextStates = map(function(o) { o.nextState }, nextBeam);
+        var nextSeqs = map(function(o) { seqs[o.index].concat(o.nextOutput) }, nextBeam);
+        var nextScores = map(function(o) { o.nextScore }, nextBeam);
+        var allTerminal = all(function(o) { o.terminal }, nextBeam);
+
+        if (maxLength <= 1 || k === 1 || allTerminal) {
+            return Categorical({ vs : nextSeqs , ps : nextScores});
+        } else {
+            return decoder(nextStates, nextSeqs, nextScores, k-1);
+        }
+    };
+
+    return decoder;
+};

@@ -1,89 +1,33 @@
-const DATA_TYPE_SEQUENCE = 0;
-const DATA_TYPE_VECTOR = 1;
-const DATA_TYPE_SCALAR = 2;
-
-var makeDataInputProduct = function(distribution, samplesPerInput) {
-	var args = _.rest(arguments, 2);
-	return mapProductArgs(function() {
-		var args = arguments;
-		var dist = applyFn(distribution, args);
-		return repeat(samplesPerInput, function() {
-			var input = _.clone(args);
-			var output = sample(dist);
-			return { input : input, output: output };
-		});
-	}, args);
-};
-
-var makeDataInputTuple = function(distribution, samplesPerInput) {
-    var args = _.rest(arguments, 2);
-    return mapTupleArgs(function() {
-        var args = arguments;
-        var dist = applyFn(distribution, args);
-        return repeat(samplesPerInput, function() {
-            var input = _.clone(args);
-            var output = sample(dist);
-            return { input : input, output: output };
+var observeHelper = function(dist, val) {
+    if (val !== undefined) {
+        factor(dist.score(val));
+        return val;
+    } else {
+        return sample(dist, {
+            guide: function() {
+                return dist; // prevent auto-guide in Forward; always use model dist
+            }
         });
-    }, args);
-};
-
-var makeData = function(distribution, samplesPerInput, inputs) {
-	return _.flatten(
-		map(function(input) {
-			var dist = distribution(input);
-			return repeat(samplesPerInput, function() {
-				return {input: input, output: sample(dist)}
-			});
-		},
-		inputs),
-		/* shallow */ true);
-
-};
-
-var makeDataFromFeatureMatrices = function(inputF, outputF, params) {
-    var getDataByType = function(vectorSequence, dataType) {
-        if (dataType == DATA_TYPE_VECTOR)
-            return vectorSequence[0];
-        else if (dataType == DATA_TYPE_SCALAR) {
-        	return vectorSequence[0].data[0];
-        } else
-            return vectorSequence;
     }
-
-	var outputD = gameppl.feature.getFeatureMatrixData(outputF);
-	return _.values(mapObject(function(id, inputf) {
-		var outputf = outputD[id];
-		var inputMat = gameppl.feature.getFeatureMatrixFromDatum(inputf);
-		var outputMat = gameppl.feature.getFeatureMatrixFromDatum(outputf);
-
-		var inputTensors = gameppl.matrix.matrixToRowTensorList(inputMat);
-
-        // FIXME Hack for now since tensors in js are different from tensors in wppl?
-		var outputTensorsTemp = gameppl.matrix.matrixToRowTensorList(outputMat);
-		var outputTensors = map(function(t) { Vector(t.toFlatArray()) }, outputTensorsTemp);
-
-		var input = getDataByType(inputTensors, params.inputType);
-        var output = getDataByType(outputTensors, params.outputType);
-
-		return {
-			id : id,
-			game : gameppl.feature.getGameFromDatum(outputf),
-			input : input,
-			output : output };
-	}, gameppl.feature.getFeatureMatrixData(inputF)));
 };
 
-var splitDataOnKey = function(D, portion, key) {
-	var keyValues = _.uniq(map(function(d) { return d[key];  }, D));
-    var splitPartKeys = randomSubset(keyValues, Math.floor(portion*keyValues.length), false);
-	var splitPartKeysObj = gameppl.util.makeObject(map(function(k) { return [k, 1]}, splitPartKeys));
+var initLearningModel = function() {
+	// Model form
+	// Output distribution
+}
 
-    var splitPart0 = filter(function(d) { return _.has(splitPartKeysObj, d[key]) }, D);
-    var splitPart1 = filter(function(d) { return !_.has(splitPartKeysObj, d[key]) }, D);
+var initSequenceInputLearningModel = function() {
+	// Encoder step
+	// Decoder form
+	// Output distribution
+}
 
-    return [splitPart0, splitPart1];
-};
+var initSequenceOutputLearningModel = function() {
+    // Encoder form
+    // Decoder step
+	//
+    // Output distribution
+}
 
 var makeTrainingObj = function(model, parameterPrior, params) {
 	return function(data) {
@@ -118,39 +62,5 @@ var train = function(trainingObj, data, iterations, gradientSamples) {
 				estimator : { ELBO : { samples : gradientSamples }},
 			});
 	return sample(SampleGuide(trainingObj(), { params: trainingResults }));
-}
-
-var makeVector = function(arr) {
-	return Tensor([arr.length,1], arr);
-}
-
-var nnparam = function (a, b) {
-	return param({ dims: [a, b], mu: 0, sigma: 0.1});
-};
-
-var sampleMatrixGaussian = function (dims, mean, variance, guide_mean) {
-	var length = dims[0] * dims[1]
-	var g = sample(DiagCovGaussian({ mu: Vector(repeat(length, constF(mean))), sigma: Vector(repeat(length, constF(variance))) }),
-	{ guide: DiagCovGaussian({ mu: T.reshape(guide_mean, [length, 1]), sigma: Vector(repeat(length, constF(0.001))) }) })
-	return T.reshape(g, dims)
-}
-
-var sampleScalarGaussian = function (mean, variance, name) {
-	return sample(Gaussian({ mu: mean, sigma: variance }),
-	{ guide: Gaussian({ mu: param({ mu: mean, name: name }), sigma: 0.001 }) });
-}
-
-var nnGaussianParameterPrior = function (hiddenSize, inputSize) {
-	var W0_var = nnparam(hiddenSize, inputSize)
-	var W1_var = nnparam(1, hiddenSize)
-	var b0_var = nnparam(hiddenSize, 1)
-	var b1_var = nnparam(1, 1)
-
-	var W0 = sampleMatrixGaussian([hiddenSize, inputSize], 0, 10, W0_var)
-	var W1 = sampleMatrixGaussian([1, hiddenSize], 0, 10, W1_var)
-	var b0 = sampleMatrixGaussian([hiddenSize, 1], 0, 10, b0_var)
-	var b1 = sampleMatrixGaussian([1, 1], 0, 10, b1_var)
-
-	return { W: [W0, W1], b: [b0, b1] };
 }
 

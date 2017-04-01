@@ -1,0 +1,73 @@
+var DECODER_SIGMOID = 0;
+var DECODER_LINEAR = 1;
+var DECODER_SOFTMAX = 2;
+
+var SEQUENCE_STEP_LSTM = 0;
+
+//var makeModelParam = param; // modelParamL2(10);
+
+var makeModelParam = function(name, maybeDims) {
+    guide(function () {
+        if (globalStore.nnParams === undefined)
+            globalStore.nnParams = {};
+        globalStore.nnParams[name] = param({ name : [name, uniqueID].join('_'), dims : maybeDims });
+    });
+
+    return globalStore.nnParams[name];
+}
+
+var makeState = function(name, dimension) {
+    return makeModelParam("state_" + name,  [dimension, 1]);
+}
+
+var makeEncoder = function(name, latentDimension) {
+    return stack([
+        tanh,
+        bias("enc_bias_0_" + name, param),
+        affine(latentDimension, 'enc_layer_0_' + name, param)
+    ]);
+};
+
+var makeDecoder = function(name, decoderType, outputDimension) {
+    if (decoderType == DECODER_SIGMOID) {
+        return stack([
+            sigmoid,
+            affine(outputDimension, 'dec_layer_0_' + name, param)
+        ]);
+    } else if (decoderType == DECODER_LINEAR) {
+        return stack([
+            affine(outputDimension, 'dec_layer_0_' + name, param)
+        ]);
+    } else if (decoderType == DECODER_SOFTMAX) {
+        return stack([
+            softmax,
+            affine(outputDimension, 'dec_layer_0_' + name, param)
+        ]);
+    }
+};
+
+var makeSequenceEncoderStep = function(name, latentDimension, maybeStepType) {
+    assert.ok(latentDimension % 2 === 0, 'Dimension for sequence model expected to be even');
+    var stepType = maybeStepType || SEQUENCE_STEP_LSTM; // Unused for now
+    var enc_net = lstm(latentDimension, 'seq_enc_h_0_' + name, param);
+    return function(prevState, x) {
+        assert.ok(dims(prevState)[0] === latentDimension, 'Previous hidden vector has unexpected dimension');
+        var nextState = enc_net(prevState, x);
+        return nextState;
+    };
+};
+
+var makeDecoderStep = function(name, latentDimension, outputDimension, maybeStepType) {
+    assert.ok(latentDimension % 2 === 0, 'Dimension for sequence model expected to be even');
+    var stepType = maybeStepType || SEQUENCE_STEP_LSTM; // Unused for now
+    var dec_net_h = lstm(latentDimension, 'seq_dec_layer_0_' + name, param);
+    var dec_net_out = stack([softmax, affine(outputDimension, 'seq_dec_out' + name, param), concat]);
+    return function(x_prev, state) {
+        assert.ok(dims(state)[0] === latentDimension, 'Previous hidden vector has unexpected dimension');
+        var v = oneHot(x_prev, outputDimension);
+        var nextState = dec_net_h(state, v);
+        var ps = dec_net_out([nextState, v]);
+        var output = mapIndexed(function(value, score) { return { value : value, score : score } }, ps.data);
+        return { output : output, state: nextState }
+    };
+};
