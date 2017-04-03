@@ -1,109 +1,188 @@
-// makeSequenceEncoder
+const SEQ_DECODER_EXACT = 0;
+const SEQ_DECODER_APPROXIMATE_BEAM = 1;
+
+// seq_initEncoder
 // Repeats an encoder step until input is completely digested
 //
-// encoderStepFn : state x input -> next state
-// initialState : initial latent state
-var makeSequenceEncoder = function(encoderStepFn, initialState) {
-    var encoder = function(xs, maybeState) {
+// params:
+//   initStepFn : Makes an encoder step function of the form state x input -> next state
+//   stepParams : init step function parameters
+//   makeInitialStateFn : () -> initial latent state
+var seq_initEncoder = function(params) {
+    var initStepFn = params.initStepFn
+    var stepParams = params.stepParams;
+    var makeInitialStateFn = params.makeInitialStateFn;
+
+    var stepFn = initStepFn(stepParams);
+    var initialState = makeInitialStateFn();
+
+    var encoderFn = function(xs, maybeState) {
         var state = maybeState || initialState;
         if (xs.length === 0) {
             return state;
         } else {
-            var nextState = encoderStepFn(state, xs[0]);
+            var nextState = stepFn(state, xs[0]);
             return encoder(xs.slice(1), nextState);
         }
     };
 
-    return encoder;
+    return { encoderFn : encoderFn, stepFn : stepFn, initialState : initialState };
 };
 
-// makeSequenceSampleDecoder
+// seq_applyEncoder
 //
-// decoderStepFn : (state x (input seq)) -> (next state, (value, score, fixed, terminal) list)
-// distributionFn : (score, value) list, [observation] -> (next symbol, terminal?) sampled from distribution
-// initialState : Initial latent state
-// startSymbol : Start symbol for sequences
-// maxLength : Maximum sequence length
-var makeSequenceSampleDecoder = function(decoderStepFn, distributionFn, initialState, startSymbol, maxLength) {
-    var decoder = function(maybeState, maybeSeq, maybeObs, maybeK) {
-        var state = maybeState || initialState;
-        var seq = maybeSeq || [startSymbol];
-        var remainingObs = maybeObs;
-        var k = maybeK || maxLength;
+// encoder : encoder created by seq_initEncoder
+// input : Input sequence
+// maybeState : Maybe hidden state
+var seq_applyEncoder = function(encoder, input, maybeState) {
+    var encoderFn = encoder.encoderFn;
+    return encoderFn(input, maybeState);
+};
 
-        var nextStateAndOutputs = decoderStepFn(state, seq);
-        var nextState = nextStateAndOutputs.state;
+// seq_getEncoderStep
+//
+// encoder : encoder created by seq_initEncoder
+var seq_getEncoderStepFn = function(encoder) {
+    return encoder.stepFn;
+};
 
-        var nextSym = distributionFn(nextStateAndOutputs.outputs, remainingObs ? remainingObs[0] : undefined);
-        var nextSeq = seq.concat([ nextSym.sym ]);
-        var nextObs = remainingObs ? remainingObs.slice(1) : undefined;
+// seq_initDecoder
+//
+// params:
+//   initStepFn : Makes an decoder step function of the form
+//                  (state x (input seq)) -> (next state, (value, score, heuristic) list)
+//   stepParams : init step function parameters
+//   makeInitialStateFn : () -> initial latent state
+//   startSymbol : Sequence start symbol
+//   terminalSymbol : Sequence terminal symbol
+//   maxLength : Maximum sequence length
+//   samplingType : SEQ_DECODER_EXACT, SEQ_DECODER_APPROXIMATE_BEAM
+//   [approximationBeamSize] : Beam size for beam search approximation
+var seq_initDecoder = function(params) {
+    var initStepFn = params.initStepFn
+    var stepParams = params.stepParams;
+    var makeInitialStateFn = params.makeInitialStateFn;
 
-        if (maxLength <= 1 || k === 1 || nextSym.terminal ) {
-            return nextSeq;
-        } else {
-            return decoder(nextState, nextSeq, nextObs, k-1);
-        }
+    var stepFn = initStepFn(stepParams);
+    var initialState = makeInitialStateFn();
+
+    return {
+        stepFn : stepFn,
+        initialState : initialState,
+        startSymbol : params.startSymbol,
+        terminalSymbol : params.terminalSymbol,
+        maxLength : params.maxLength,
+        samplingType : params.samplingType,
+        approximationBeamSize : params.approximationBeamSize
     };
-
-    return decoder;
 };
 
-
-// makeSequenceBeamDecoder
+// seq_decodeDistribution
 //
-// decoderStepFn : (state x (input seq)) -> (next state, (value, score, heuristic, fixed, terminal) list)
-// B : Beam size
-// initialState : Initial latent state
-// startSymbol : Start symbol for sequences
-// maxLength : Maximum sequence length
-var makeSequenceBeamDecoder = function(decoderStepFn, B, initialState, startSymbol, maxLength) {
-    var decoder = function(maybeStates, maybeSeqs, maybeScores, maybeK) {
-        var states = maybeStates || [initialState];
-        var seqs = maybeSeqs || repeat(states.length, function() { [ startSymbol ] });
-        var scores = maybeScores || repeat(seqs.length, function() { 0.0 });
-        var k = maybeK || maxLength;
+// decoder : decoder initialized by seq_initDecoder
+// latentState : State to decode
+// distributionFn : decoder output -> Distribution
+//
+// Return approximate distribution object constructed from decoder
+var seq_decodeDistribution = function(decoder, latentState, distributionFn) {
+    var output = _seq_beamDecode(decoder);
+    return distributionFn(output);
+};
 
-        var nextScores = _.flatten(mapIndexed(
-            function(index, state) {
-                var seq = seqs[index];
-                var score = scores[index];
-                var nextStateAndOutputs = decoderStepFn(state, seq);
-                var nextState = nextStateAndOutputs.state;
+// seq_decodeSample
+//
+// decoder : decoder initialized by seq_initDecoder
+// latentState : state to decode
+// distributionFn : decoder output -> Distribution
+// [maybeObserved] : Observation to factor on
+//
+// Return sample from distribution given maybeObservation
+var seq_decodeSample = function(decoder, latentState, distributionFn, maybeObserved) {
+    if (decoder.samplingType === SEQ_DECODER_APPROXIMATE_BEAM) {
+        var output = _seq_beamDecode(decoder, maybeObserved);
+        var Dist = distributionFn(output);
+        return util_observeHelper(Dist, maybeObserved);
+    } else if (decoder.samplingType === SEQ_DECODER_EXACT) {
+        return _seq_exactDecodeSample(decoder, distributionFn, maybeObserved);
+    }
+};
 
-                return map(function(output) {
-                    var nextOutput = output.value;
-                    var nextScore = output.score + score;
-                    var nextHeuristicScore = output.heuristic + output.score + score;
-                    var fixed = output.fixed;
-                    var terminal = output.terminal;
+// _seq_beamDecode
+//
+// decoder : decoder initialized by seq_initDecoder
+// [maybeObserved] : optional observed sequence
+// [maybeStates]
+// [maybeSeqs]
+// [maybeScores]
+// [maybeK]
+var _seq_beamDecode = function(decoder, maybeObserved, maybeStates, maybeSeqs, maybeScores, maybeK) {
+    var states = maybeStates || [decoder.initialState];
+    var seqs = maybeSeqs || repeat(states.length, function() { [ decoder.startSymbol ] });
+    var scores = maybeScores || repeat(seqs.length, function() { 0.0 });
+    var k = maybeK || decoder.maxLength;
 
-                    return { index : index,
-                             nextState : nextState,
-                             nextOutput : nextOutput,
-                             nextScore : nextScore,
-                             nextHeuristicScore : nextHeuristicScore,
-                             fixed : fixed,
-                             terminal : terminal
-                    };
-                }, nextStateAndOutputs.outputs);
+    var nextScores = _.flatten(mapIndexed(
+        function(index, state) {
+            var seq = seqs[index];
+            var score = scores[index];
+            var nextStateAndOutputs = decoder.stepFn(state, seq);
+            var nextState = nextStateAndOutputs.state;
+            var indObserved = (maybeObserved !== undefined)
+                && (maybeObserved.length >= seq.length) && _.isEqual(_.first(maybeObserved, seq.length), seq);
+
+            return map(function(output) {
+                var nextOutput = output.value;
+                var nextScore = output.score + score;
+                var nextHeuristic = output.heuristic === undefined ? 0.0 : output.heuristic;
+                var nextHeuristicScore = nextHeuristic + output.score + score;
+                var fixed = indObserved
+                    && (maybeObserved.length >= seq.length + 1)
+                    && maybeObserved[seq.length] === nextOutput;
+
+                return { index : index,
+                    nextState : nextState,
+                    nextOutput : nextOutput,
+                    nextScore : nextScore,
+                    nextHeuristicScore : nextHeuristicScore,
+                    fixed : fixed
+                };
+            }, nextStateAndOutputs.outputs);
         }, states));
 
-        var sortedNextScores = sort(nextScores, gt, function(obj) { (obj.fixed) ? Infinity : obj.nextHeuristicScore });
-        var nextBeam = _.first(sortedNextScores, B);
+    var sortedNextScores = sort(nextScores, gt, function(obj) { (obj.fixed) ? Infinity : obj.nextHeuristicScore });
+    var nextBeam = _.first(sortedNextScores, decoder.approximationBeamSize);
 
-        // Make next states, seqs, scores
-        // Check all terminated
-        var nextStates = map(function(o) { o.nextState }, nextBeam);
-        var nextSeqs = map(function(o) { seqs[o.index].concat(o.nextOutput) }, nextBeam);
-        var nextScores = map(function(o) { o.nextScore }, nextBeam);
-        var allTerminal = all(function(o) { o.terminal }, nextBeam);
+    // Make next states, seqs, scores
+    // Check all terminated
+    var nextStates = map(function(o) { o.nextState }, nextBeam);
+    var nextSeqs = map(function(o) { seqs[o.index].concat(o.nextOutput) }, nextBeam);
+    var nextScores = map(function(o) { o.nextScore }, nextBeam);
+    var allTerminal = all(function(o) { o.nextOutput === decoder.terminalSymbol }, nextBeam);
 
-        if (maxLength <= 1 || k === 1 || allTerminal) {
-            return Categorical({ vs : nextSeqs , ps : nextScores});
-        } else {
-            return decoder(nextStates, nextSeqs, nextScores, k-1);
-        }
-    };
+    if (decoder.maxLength <= 1 || k === 1 || allTerminal) {
+        return map2(function(seq, score) { return { value : seq, score : score } }, nextSeqs, nextScores);
+    } else {
+        return _seq_beamDecode(decoder, maybeObserved, nextStates, nextSeqs, nextScores, k-1);
+    }
+};
 
-    return decoder;
+var _seq_exactDecodeSample = function(decoder, distributionFn, maybeObserved, maybeState, maybeSeq, maybeK) {
+    var state = maybeState || decoder.initialState;
+    var seq = maybeSeq || [decoder.startSymbol];
+    var remainingObs = maybeObserved;
+    var k = maybeK || decoder.maxLength;
+
+    var nextStateAndOutputs = decoder.stepFn(state, seq);
+    var nextState = nextStateAndOutputs.state;
+
+    var Dist = distributionFn(nextStateAndOutputs.outputs);
+    var nextSym = util_observeHelper(Dist, remainingObs ? remainingObs[0] : undefined);
+    var nextSeq = seq.concat([ nextSym ]);
+    var nextObs = remainingObs ? remainingObs.slice(1) : undefined;
+
+    if (decoder.maxLength <= 1 || k === 1 || nextSym === decoder.terminalSymbol ) {
+        return nextSeq;
+    } else {
+        return _seq_exactDecodeSample(decoder, distributionFn, nextObs, nextState, nextSeq, k-1);
+    }
 };

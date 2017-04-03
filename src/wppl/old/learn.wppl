@@ -1,0 +1,217 @@
+
+
+// initLearningModel
+// inputType : data type of input
+//             (DATA_TYPE_VECTOR_SEQUENCE, DATA_TYPE_SCALAR_SEQUENCE, DATA_TYPE_VECTOR, DATA_TYPE_SCALAR, DATA_TYPE_LIST)
+// outputType : data type of output
+//             (DATA_TYPE_VECTOR_SEQUENCE, DATA_TYPE_SCALAR_SEQUENCE, DATA_TYPE_VECTOR, DATA_TYPE_SCALAR, DATA_TYPE_LIST)
+// encoderForm : (params) -> encoderInstance
+// decoderForm : (params) -> decoderInstance
+// encoderParameterFn : () -> encoderParameters
+// decoderParameterFn : () -> decoderParameters
+var initLearningModelForm = function(params) {
+	return params;
+};
+
+var _isSequenceInputModel = function(modelForm) {
+    return modelForm.inputType === DATA_TYPE_SCALAR_SEQUENCE || modelForm.inputType === DATA_TYPE_VECTOR_SEQUENCE;
+};
+
+var _isSequenceOutputModel = function(modelForm) {
+    return modelForm.outputType === DATA_TYPE_SCALAR_SEQUENCE || modelForm.outputType === DATA_TYPE_VECTOR_SEQUENCE;
+}
+
+var _isSequenceModel = function(modelForm) {
+    return _isSequenceInputModel(modelForm) || _isSequenceOutputModel(modelForm);
+};
+
+var _initModel = function(modelForm, params) {
+    var encoderParameterFn = modelForm.encoderParameterFn;
+    var decoderParameterFn = modelForm.decoderParameterFn;
+    var encoderForm = modelForm.encoderForm;
+    var decoderForm = modelForm.decoderForm;
+
+    var encoderParams = encoderParameterFn();
+    var decoderParams = decoderParameterFn();
+
+    if (!_isSequenceModel(modelForm)) {
+        var distributionFn = params.distributionFn;
+        var encoderInstance = encoderForm(encoderParams);
+        var decoderInstance = decoderForm(decoderParams);
+
+        var modelInstance = function(input) {
+            var hiddenState = modelForm.inputType === DATA_TYPE_LIST ?
+                applyFn(encoderInstance, input) : encoderInstance(input);
+            return distributionFn(decoderInstance(hiddenState));
+        };
+
+        return { modelForm : modelForm,
+                 modelInstance : modelInstance,
+                 encoderInstance : encoderInstance,
+                 decoderInstance : decoderInstance,
+                 encoderParams : encoderParams,
+                 decoderParams : decoderParams,
+                 initParams : params };
+    } else {
+        var encoderInstance = _isSequenceInputModel(modelInstance) ?
+                                  makeSequenceEncoder(encoderForm(encoderParams), encoderParams)
+                              : encoderForm(encoderParams);
+
+        var decoderInstance = _isSequenceOutputModel(modelInstance) ?
+                                  makeSequenceDecoder(decoderForm(decoderParams), decoderParams)
+                              : decoderForm(decoderParams);
+
+        return { modelForm : modelForm,
+                 encoderInstance : encoderInstance,
+                 decoderInstance : decoderInstance,
+                 encoderParams : encoderParams,
+                 decoderParams : decoderParams,
+                 initParams : params };
+    }
+};
+
+var applyModel = function(model, input, maybeOutput) {
+    if (!_isSequenceModel(model.modelForm)) {
+        var Dist = modelInstance(datum.input);
+        if (maybeOutput !== undefined)
+            factor(Dist.score(datum.output));
+        return Dist;
+    } else {
+
+
+        if (!_isSequenceInputModel(model.modelForm)) {
+            if (model.modelForm.inputType === DATA_TYPE_LIST)
+        } else {
+
+        }
+    }
+};
+
+// _makeTrainingObjNonSequence
+//
+// Helper for makeTrainingObj
+var _makeTrainingObjNonSequence = function(modelForm, params) {
+    return function(data) {
+        return function() {
+        	var encoderParameterFn = modelForm.encoderParameterFn;
+        	var decoderParameterFn = modelForm.decoderParameterFn;
+			var encoderForm = modelForm.encoderForm;
+			var decoderForm = modelForm.decoderForm;
+
+			var encoderParams = encoderParameterFn();
+			var decoderParams = decoderParameterFn();
+
+        	var encoderInstance = encoderForm(encoderParams);
+        	var decoderInstance = decoderForm(decoderParams);
+
+        	var distributionFn = params.distributionFn;
+
+        	var modelInstance = function(input) {
+				var hiddenState = modelForm.inputType === DATA_TYPE_LIST ?
+					applyFn(encoderInstance, input) : encoderInstance(input);
+				return distributionFn(decoderInstance(hiddenState));
+			};
+
+        	var model =
+                { modelForm : modelForm,
+                modelInstance : modelInstance,
+                encoderInstance : encoderInstance,
+                decoderInstance : decoderInstance,
+                encoderParams : encoderParams,
+                decoderParams : decoderParams,
+                initParams : params };
+
+            if (data) {
+                mapData({ data: data, batchSize : params.batchSize}, function(datum) {
+                    var Dist = modelInstance(datum.input);
+                    factor(Dist.score(datum.output));
+                });
+            }
+
+            return model;
+        }
+    }
+};
+
+// _makeTrainingObjSequence
+//
+// Helper for makeTrainingObj
+var _makeTrainingObjSequence = function(modelForm, params) {
+    return function(data) {
+        return function() {
+            var encoderParameterFn = modelForm.encoderParameterFn;
+            var decoderParameterFn = modelForm.decoderParameterFn;
+            var encoderForm = modelForm.encoderForm;
+            var decoderForm = modelForm.decoderForm;
+
+            var encoderParams = encoderParameterFn();
+            var decoderParams = decoderParameterFn();
+
+            var encoderInstance = encoderForm(encoderParams);
+            var decoderInstance = decoderForm(decoderParams);
+
+            if (data) {
+                mapData({ data: data, batchSize : params.batchSize}, function(datum) {
+                    if (modelForm.inputType === DATA)
+
+                    var Dist = modelInstance(datum.input);
+                    factor(Dist.score(datum.output));
+                });
+            }
+
+            return { modelForm : modelForm,
+                     encoderInstance : encoderInstance,
+                     decoderInstance : decoderInstance,
+				     encoderParams : encoderParams,
+                     decoderParams : decoderParams,
+                     trainingParams : trainingParams };
+        }
+    }
+};
+
+// makeTrainingObj
+//
+// model : Model initialized by initLearningModel
+// params :
+//    batchSize : sampling mini-batch size
+//    If output type is not a sequence:
+//        distributionFn : decoder output -> Distribution
+//    If output type is a sequence:
+//        seqDecodingMethod :
+//            (SEQ_DECODING_METHOD_EXACT, SEQ_DECODING_METHOD_APPROXIMATE_BEAM)
+//        seqDecoderParams : Sequence decoding parameters
+var makeTrainingObj = function(model, params) {
+	return function(data) {
+		return function() {
+			var parameters = parameterPrior();
+			var modelInstance = model(parameters);
+		
+			if (data) {
+				mapData({ data: data, batchSize : params.batchSize}, function(datum) {
+					if (params.modelObserves)
+						applyFn(modelInstance, _.union([datum.input], [datum.output]))
+					else {
+                        var dist = (params.inputType == DATA_TYPE_SEQUENCE) ? modelInstance(datum.input) : applyFn(modelInstance, datum.input);
+
+                        //console.log(dist);
+                        //console.log(datum.output);
+
+						factor(dist.score(datum.output));
+					}
+				});
+			}
+
+			return [modelInstance, parameters]; //return modelInstance;
+		}
+	}
+}
+
+var trainLearningModel = function(trainingObj, data, iterations, gradientSamples) {
+	var trainingResults = Optimize(trainingObj(data),
+			{
+				steps: iterations,
+				estimator : { ELBO : { samples : gradientSamples }},
+			});
+	return sample(SampleGuide(trainingObj(), { params: trainingResults }));
+}
+

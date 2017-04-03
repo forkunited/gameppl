@@ -1,12 +1,15 @@
-var DECODER_SIGMOID = 0;
-var DECODER_LINEAR = 1;
-var DECODER_SOFTMAX = 2;
+var NN_DECODER_SIGMOID = 0;
+var NN_DECODER_LINEAR = 1;
+var NN_DECODER_SOFTMAX = 2;
 
-var SEQUENCE_STEP_LSTM = 0;
+var NN_ENCODER_TANH = 0;
+var NN_ENCODER_CONSTANT = 1;
+
+var NN_SEQUENCE_STEP_LSTM = 0;
 
 //var makeModelParam = param; // modelParamL2(10);
 
-var makeModelParam = function(name, maybeDims) {
+var _nn_makeModelParam = function(name, maybeDims) {
     guide(function () {
         if (globalStore.nnParams === undefined)
             globalStore.nnParams = {};
@@ -16,55 +19,127 @@ var makeModelParam = function(name, maybeDims) {
     return globalStore.nnParams[name];
 }
 
-var makeState = function(name, dimension) {
-    return makeModelParam("state_" + name,  [dimension, 1]);
-}
-
-var makeEncoder = function(name, latentDimension) {
-    return stack([
-        tanh,
-        bias("enc_bias_0_" + name, param),
-        affine(latentDimension, 'enc_layer_0_' + name, param)
-    ]);
+// _nn_makeState
+//
+// params:
+//   name : Reference name
+//   dimension : Dimension of state
+var _nn_makeState = function(params) {
+    return makeModelParam("state_" + params.name,  [params.dimension, 1]);
 };
 
-var makeDecoder = function(name, decoderType, outputDimension) {
-    if (decoderType == DECODER_SIGMOID) {
+
+// nn_initEncoder
+//
+// params:
+//   name : Reference name
+//   encoderType : (NN_ENCODER_TANH, NN_ENCODER_CONSTANT)
+//   latentDimension : Dimension of hidden state
+var nn_initEncoder = function(params) {
+    if (params.encoderType === NN_ENCODER_TANH) {
+        return stack([
+            tanh,
+            bias("enc_bias_0_" + params.name, param),
+            affine(params.latentDimension, 'enc_layer_0_' + params.name, param)
+        ]);
+    } else if (params.encoderType == NN_ENCODER_CONSTANT) {
+        return function() { _nn_makeState({ name : params.name, dimension : params.latentDimension }) };
+    }
+};
+
+// nn_applyEncoder
+//
+// encoder : encoder initialized by nn_initEncoder
+// input : Input to the encoder
+var nn_applyEncoder = function(encoder, input) {
+    return encoder(input);
+}
+
+// nn_initDecoder
+//
+// params:
+//   name : Reference name
+//   decoderType : Activation function at output later (NN_DECODER_SIGMOID, NN_DECODER_LINEAR, NN_DECODER_SOFTMAX)
+//   outputDimension : Dimension of output later
+var nn_initDecoder = function(params) {
+    if (params.decoderType == NN_DECODER_SIGMOID) {
         return stack([
             sigmoid,
-            affine(outputDimension, 'dec_layer_0_' + name, param)
+            affine(params.outputDimension, 'dec_layer_0_' + params.name, param)
         ]);
-    } else if (decoderType == DECODER_LINEAR) {
+    } else if (params.decoderType == NN_DECODER_LINEAR) {
         return stack([
-            affine(outputDimension, 'dec_layer_0_' + name, param)
+            affine(params.outputDimension, 'dec_layer_0_' + params.name, param)
         ]);
-    } else if (decoderType == DECODER_SOFTMAX) {
+    } else if (params.decoderType == NN_DECODER_SOFTMAX) {
         return stack([
             softmax,
-            affine(outputDimension, 'dec_layer_0_' + name, param)
+            affine(params.outputDimension, 'dec_layer_0_' + params.name, param)
         ]);
     }
 };
 
-var makeSequenceEncoderStep = function(name, latentDimension, maybeStepType) {
-    assert.ok(latentDimension % 2 === 0, 'Dimension for sequence model expected to be even');
-    var stepType = maybeStepType || SEQUENCE_STEP_LSTM; // Unused for now
-    var enc_net = lstm(latentDimension, 'seq_enc_h_0_' + name, param);
+// nn_applyDecoder
+//
+// decoder : decoder initialized by nn_initDecoder
+// latentState : state output by an encoder
+var nn_applyDecoder = function(decoder, latentState) {
+    return decoder(latentState);
+};
+
+// nn_decodeDistribution
+//
+// decoder : decoder initialized by nn_initDecoder
+// latentState : State to decode
+// distributionFn : decoder output -> Distribution
+//
+// Return distribution object constructed from decoder
+var nn_decodeDistribution = function(decoder, latentState, distributionFn) {
+    return distributionFn(nn_applyDecoder(decoder, latentState));
+};
+
+// nn_decodeSample
+//
+// decoder : decoder initialized by nn_initDecoder
+// latentState : state to decode
+// distributionFn : decoder output -> Distribution
+// [maybeObservation] : Observation to factor on
+//
+// Return sample from distribution given maybeObservation
+var nn_decodeSample = function(decoder, latentState, distributionFn, maybeObservation) {
+    var Dist = nn_decodeDistribution(decoder, latentState, distributionFn);
+    return util_observeHelper(Dist, maybeObservation);
+};
+
+// nn_initSequenceEncoderStep
+//
+// params:
+//   name : Reference name
+//   latentDimension : Dimension of hidden state (must be even)
+var nn_initSequenceEncoderStep = function(params) {
+    assert.ok(params.latentDimension % 2 === 0, 'Dimension for sequence model expected to be even');
+    var stepType = params.maybeStepType || NN_SEQUENCE_STEP_LSTM; // Unused for now
+    var enc_net = lstm(params.latentDimension, 'seq_enc_h_0_' + params.name, param);
     return function(prevState, x) {
-        assert.ok(dims(prevState)[0] === latentDimension, 'Previous hidden vector has unexpected dimension');
+        assert.ok(dims(prevState)[0] === params.latentDimension, 'Previous hidden vector has unexpected dimension');
         var nextState = enc_net(prevState, x);
         return nextState;
     };
 };
 
-var makeDecoderStep = function(name, latentDimension, outputDimension, maybeStepType) {
-    assert.ok(latentDimension % 2 === 0, 'Dimension for sequence model expected to be even');
-    var stepType = maybeStepType || SEQUENCE_STEP_LSTM; // Unused for now
-    var dec_net_h = lstm(latentDimension, 'seq_dec_layer_0_' + name, param);
-    var dec_net_out = stack([softmax, affine(outputDimension, 'seq_dec_out' + name, param), concat]);
+// nn_initSequenceDecoderStep
+//
+// params:
+//   name : Reference name
+//   latentDimension : Dimension of hidden state (must be even)
+var nn_initSequenceDecoderStep = function(params) {
+    assert.ok(params.latentDimension % 2 === 0, 'Dimension for sequence model expected to be even');
+    var stepType = params.maybeStepType || NN_SEQUENCE_STEP_LSTM; // Unused for now
+    var dec_net_h = lstm(params.latentDimension, 'seq_dec_layer_0_' + params.name, param);
+    var dec_net_out = stack([softmax, affine(params.outputDimension, 'seq_dec_out' + params.name, param), concat]);
     return function(x_prev, state) {
-        assert.ok(dims(state)[0] === latentDimension, 'Previous hidden vector has unexpected dimension');
-        var v = oneHot(x_prev, outputDimension);
+        assert.ok(dims(state)[0] === params.latentDimension, 'Previous hidden vector has unexpected dimension');
+        var v = oneHot(x_prev, params.outputDimension);
         var nextState = dec_net_h(state, v);
         var ps = dec_net_out([nextState, v]);
         var output = mapIndexed(function(value, score) { return { value : value, score : score } }, ps.data);

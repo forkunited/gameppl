@@ -1,0 +1,93 @@
+const DATA_TYPE_VECTOR_SEQUENCE = 0;
+const DATA_TYPE_SCALAR_SEQUENCE = 1;
+const DATA_TYPE_VECTOR = 2;
+const DATA_TYPE_SCALAR = 3;
+const DATA_TYPE_LIST = 4;
+
+var data_makeInputProduct = function(distribution, samplesPerInput) {
+	var args = _.rest(arguments, 2);
+	return util_mapProductArgs(function() {
+		var args = arguments;
+		var dist = util_applyFn(distribution, args);
+		return repeat(samplesPerInput, function() {
+			var input = _.clone(args);
+			var output = sample(dist);
+			return { input : input, output: output };
+		});
+	}, args);
+};
+
+var data_makeInputTuple = function(distribution, samplesPerInput) {
+    var args = _.rest(arguments, 2);
+    return util_mapTupleArgs(function() {
+        var args = arguments;
+        var dist = util_applyFn(distribution, args);
+        return repeat(samplesPerInput, function() {
+            var input = _.clone(args);
+            var output = sample(dist);
+            return { input : input, output: output };
+        });
+    }, args);
+};
+
+var data_make = function(distribution, samplesPerInput, inputs) {
+	return _.flatten(
+		map(function(input) {
+			var dist = distribution(input);
+			return repeat(samplesPerInput, function() {
+				return {input: input, output: sample(dist)}
+			});
+		},
+		inputs),
+		/* shallow */ true);
+
+};
+
+var data_makeFromFeatureMatrices = function(inputF, outputF, params) {
+    var getDataByType = function(vectorSequence, dataType) {
+        if (dataType == DATA_TYPE_VECTOR) {
+            return vectorSequence[0];
+        } else if (dataType == DATA_TYPE_SCALAR) {
+        	return vectorSequence[0].data[0];
+        } else if (dataType == DATA_TYPE_SCALAR_SEQUENCE) {
+        	return map(function(v) { v.data[0] }, vectorSequence);
+        } else if (dataType == DATA_TYPE_VECTOR_SEQUENCE) {
+            return vectorSequence;
+        }
+    }
+
+	var outputD = gameppl.feature.getFeatureMatrixData(outputF);
+	return _.values(mapObject(function(id, inputf) {
+		var outputf = outputD[id];
+		var inputMat = gameppl.feature.getFeatureMatrixFromDatum(inputf);
+		var outputMat = gameppl.feature.getFeatureMatrixFromDatum(outputf);
+
+		var inputTensors = gameppl.matrix.matrixToRowTensorList(inputMat);
+
+        // FIXME Hack for now since tensors in js are different from tensors in wppl?
+		var outputTensorsTemp = gameppl.matrix.matrixToRowTensorList(outputMat);
+		var outputTensors = map(function(t) { Vector(t.toFlatArray()) }, outputTensorsTemp);
+
+		var input = getDataByType(inputTensors, params.inputType);
+        var output = getDataByType(outputTensors, params.outputType);
+
+		return {
+			id : id,
+			game : gameppl.feature.getGameFromDatum(outputf),
+			input : input,
+			output : output };
+	}, gameppl.feature.getFeatureMatrixData(inputF)));
+};
+
+var data_splitOnKey = function(D, portion, key) {
+	var keyValues = _.uniq(map(function(d) { return d[key];  }, D));
+    var splitPartKeys = util_randomSubset(keyValues, Math.floor(portion*keyValues.length), false);
+	var splitPartKeysObj = gameppl.util.makeObject(map(function(k) { return [k, 1]}, splitPartKeys));
+
+    var splitPart0 = filter(function(d) { return _.has(splitPartKeysObj, d[key]) }, D);
+    var splitPart1 = filter(function(d) { return !_.has(splitPartKeysObj, d[key]) }, D);
+
+    return [splitPart0, splitPart1];
+};
+
+

@@ -1,7 +1,7 @@
 // Run with:
 // webppl test/wppl/train_model_seq.wppl --require webppl-nn --require . --random-seed 1 --iterations 100
 
-var args = parseArgs();
+var args = util_parseArgs();
 var iterations = args["iterations"]*1;
 var batchSize = 100;
 var gradientSamples = 1;

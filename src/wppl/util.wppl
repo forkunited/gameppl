@@ -1,4 +1,4 @@
-var applyFn = function(fn, args) {
+var util_applyFn = function(fn, args) {
     if (args.length <= 1 || args.length >=5) {
         display("applyFn error: Requires at least 1 but no more than 4 arguments")
         return undefined;
@@ -15,7 +15,7 @@ var applyFn = function(fn, args) {
     }
 }
 
-var mapTupleArgs = function(fn, args) {
+var util_mapTupleArgs = function(fn, args) {
     if (args.length <= 1 || args.length >=5) {
         display("mapTupleArgs error: At least 1 but no more than 4 lists of arguments should be given")
         return undefined;
@@ -23,18 +23,18 @@ var mapTupleArgs = function(fn, args) {
 
     return mapN(function(i) {
         var args = mapN(function(j) { return args[j][i] }, args.length);
-        return applyFn(fn, args);
+        return util_applyFn(fn, args);
     }, args[0].length);
 }
 
-var mapTuple = function(fn) {
+var util_mapTuple = function(fn) {
     if (arguments.length <= 1 || arguments.length >=5) {
         display("mapTuple error: At least 1 but no more than 4 lists of arguments should be given")
         return undefined;
     }
 
     var args = _.rest(arguments, 1);
-    return mapTupleArgs(fn, args);
+    return util_mapTupleArgs(fn, args);
 }
 
 var _listProduct = function(args) {
@@ -49,11 +49,11 @@ var _listProduct = function(args) {
     return reduce(function(l, acc) { return listProductPair(l, acc) }, [[]], args)
 }
 
-var listProduct = function() {
+var util_listProduct = function() {
     return _listProduct(arguments);
 }
 
-var mapProductArgs = function(fn, args) {
+var util_mapProductArgs = function(fn, args) {
     if (args.length <= 1 || args.length >=5) {
         display("mapProductArgs error: At least 1 but no more than 4 lists of arguments should be given")
         return undefined;
@@ -62,11 +62,11 @@ var mapProductArgs = function(fn, args) {
     var tuples = _listProduct(args);
 
     return map(function(tuple) {
-        return applyFn(fn, tuple);
+        return util_applyFn(fn, tuple);
     }, tuples);
 }
 
-var mapProduct = function(fn) {
+var util_mapProduct = function(fn) {
     if (arguments.length <= 1 || arguments.length >=5) {
         display("mapProduct error: At least 1 but no more than 4 lists of arguments should be given")
         return undefined;
@@ -74,7 +74,7 @@ var mapProduct = function(fn) {
 
     var arguments0 = arguments;
     var args = mapN(function(i) { return arguments0[i+1] }, arguments0.length - 1);
-    return mapProductArgs(fn, args);
+    return util_mapProductArgs(fn, args);
     /*return _.flatten(
      map(function(item1) {
      return map(function(item2) {
@@ -83,7 +83,7 @@ var mapProduct = function(fn) {
      }, arr1), false);*/
 }
 
-var constructSupport = function(dist, parameters) {
+var util_constructSupport = function(dist, parameters) {
 	if (parameters != undefined) {
         return _.unzip(_.flatten(map(function(param) {
             return (Infer({method : 'enumerate'},
@@ -97,7 +97,7 @@ var constructSupport = function(dist, parameters) {
     }
 }
 
-var parseArgs = function() {
+var util_parseArgs = function() {
 	var args = process.argv;
 	var keyValues = mapN(function(index) {
 		if (index != args.length - 1 && args[index].startsWith("--")) {
@@ -118,13 +118,13 @@ var parseArgs = function() {
  * Random subset helper function
  */
 
-var randomSubset = function(l, k, ordered) {
-    var subset = ordered ? sort(randomIndexSubset(l.length, k)) : randomIndexSubset(l.length, k);
+var util_randomSubset = function(l, k, ordered) {
+    var subset = ordered ? sort(util_randomIndexSubset(l.length, k)) : util_randomIndexSubset(l.length, k);
     var points = map(function(index) { return l[index] }, subset);
     return points;
 }
 
-var randomIndexSubset = function(n, k) {
+var util_randomIndexSubset = function(n, k) {
     var randomIndexSubsetHelper = function(subset, possible) {
         var nextIndex = randomInteger(possible.length);
         var nextVal = possible[nextIndex];
@@ -146,23 +146,23 @@ var randomIndexSubset = function(n, k) {
  * Old slow version of random subset that relies on shuffling
  */
 
-var randomIndexSubsetShuffle = function(n, k) {
-    var perm = shuffleIndex(n);
+var util_randomIndexSubsetShuffle = function(n, k) {
+    var perm = util_shuffleIndex(n);
     return _.initial(perm, n-k);
 }
 
-var shuffleIndex = function(n) {
+var util_shuffleIndex = function(n) {
     var perm = _.range(n);
-    return shuffleIndexHelper(n-1, perm);
+    return util_shuffleIndexHelper(n-1, perm);
 }
 
-var shuffleIndexHelper = function(i, perm) {
+var util_shuffleIndexHelper = function(i, perm) {
     if (i == 0)
         return perm
     else {
         var temp = perm[i];
         var swap = randomInteger(i+1);
-        return shuffleIndexHelper(i - 1, mapIndexed(function(index, element) {
+        return util_shuffleIndexHelper(i - 1, mapIndexed(function(index, element) {
             return index == i ? perm[swap] :
                 (index == swap ? temp :
                     perm[index])
@@ -172,10 +172,44 @@ var shuffleIndexHelper = function(i, perm) {
 
 /* String stuff */
 
-var strProduct = function(strList1, strList2, midStr, endStr) {
+var util_strProduct = function(strList1, strList2, midStr, endStr) {
     return _.flatten(map(function(str1) {
         return map(function(str2) {
             return str1 + midStr + str2 + endStr
         }, strList2)
     }, strList1));
-}
+};
+
+/* Distribution stuff */
+
+var util_observeHelper = function(Dist, val) {
+    if (val !== undefined) {
+        factor(Dist.score(val));
+        return val;
+    } else {
+        return sample(dist, {
+            guide: function() {
+                return dist; // prevent auto-guide in Forward; always use model dist
+            }
+        });
+    }
+};
+
+// util_objCategorical
+//
+// values : (value, score) list
+var util_objCategorical = function(objs) {
+    var vs = map(function(obj) { obj.value }, objs);
+    var ps = map(function(obj) { obj.score }, objs);
+    return Categorical({ vs : vs, ps : ps });
+};
+
+// util_objSoftmaxCategorical
+//
+// values : (value, score) list
+var util_objSoftmaxCategorical = function(objs) {
+    var max = _.max(map(function(obj) { obj.value }, objs));
+    var vs = map(function(obj) { Math.exp(obj.value - max) }, objs);
+    var ps = map(function(obj) { obj.score }, objs);
+    return Categorical({ vs : vs, ps : ps });
+};
