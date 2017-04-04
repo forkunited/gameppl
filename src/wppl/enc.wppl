@@ -25,19 +25,19 @@ var enc_initDecoder = function(type, params) {
     }
 };
 
-var enc_decodeSample = function(decoder, latentState, distributionFn, maybeObservation) {
+var enc_decodeSample = function(decoder, input, latentState, distributionFn, maybeObservation) {
     if (decoder.type === ENC_NN) {
-        return nn_decodeSample(decoder.obj, latentState, distributionFn, maybeObservation);
+        return nn_decodeSample(decoder.obj, input, latentState, distributionFn, maybeObservation);
     } else if (decoder.type === ENC_SEQ) {
-        return seq_decodeSample(decoder.obj, latentState, distributionFn, maybeObservation);
+        return seq_decodeSample(decoder.obj, input, latentState, distributionFn, maybeObservation);
     }
 };
 
-var enc_decodeDistribution = function(decoder, latentState, distributionFn) {
+var enc_decodeDistribution = function(decoder, input, latentState, distributionFn) {
     if (decoder.type === ENC_NN) {
-        return nn_decodeDistribution(decoder.obj, latentState, distributionFn);
+        return nn_decodeDistribution(decoder.obj, input, latentState, distributionFn);
     } else if (decoder.type === ENC_SEQ) {
-        return seq_decodeDistribution(decoder.obj, latentState, distributionFn);
+        return seq_decodeDistribution(decoder.obj, input, latentState, distributionFn);
     }
 };
 
@@ -46,18 +46,22 @@ var enc_initModel = function(params) {
              decoder : enc_initDecoder(params.decoderType, params.decoderParams) };
 };
 
+var enc_getDecoder = function(model) {
+    return model.decoder;
+};
+
 var enc_modelSample = function(model, input, distributionFn, maybeObservation) {
     var encoder = model.encoder;
     var decoder = model.decoder;
     var latentState = enc_applyEncoder(encoder, input);
-    return enc_decodeSample(decoder, latentState, distributionFn, maybeObservation);
+    return enc_decodeSample(decoder, input, latentState, distributionFn, maybeObservation);
 };
 
 var enc_modelDistribution = function(model, input, distributionFn) {
     var encoder = model.encoder;
     var decoder = model.decoder;
     var latentState = enc_applyEncoder(encoder, input);
-    return enc_decodeDistribution(decoder, latentState, distributionFn);
+    return enc_decodeDistribution(decoder, input, latentState, distributionFn);
 };
 
 var _enc_initTrainingObj = function(params) {
@@ -112,3 +116,4 @@ var enc_initTrainedModel = function(params, data) {
     var model = _enc_trainLearningModel(trainingObj, data, params.iterations, params.gradientSamples);
     return model;
 };
+

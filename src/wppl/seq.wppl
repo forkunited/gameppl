@@ -52,7 +52,7 @@ var seq_getEncoderStepFn = function(encoder) {
 //   initStepFn : Makes an decoder step function of the form
 //                  (state x (input seq)) -> (next state, (value, score, heuristic) list)
 //   stepParams : init step function parameters
-//   makeInitialStateFn : () -> initial latent state
+//   [makeInitialStateFn] : () -> initial latent state
 //   startSymbol : Sequence start symbol
 //   terminalSymbol : Sequence terminal symbol
 //   maxLength : Maximum sequence length
@@ -64,7 +64,7 @@ var seq_initDecoder = function(params) {
     var makeInitialStateFn = params.makeInitialStateFn;
 
     var stepFn = initStepFn(stepParams);
-    var initialState = makeInitialStateFn();
+    var initialState = (makeInitialStateFn !== undefined) ? makeInitialStateFn() : undefined;
 
     return {
         stepFn : stepFn,
@@ -77,55 +77,66 @@ var seq_initDecoder = function(params) {
     };
 };
 
+// seq_getDecoderStep
+//
+// decoder : decoder created by seq_initDecoder
+var seq_getDecoderStepFn = function(decoder) {
+    return decoder.stepFn;
+};
+
 // seq_decodeDistribution
 //
 // decoder : decoder initialized by seq_initDecoder
+// input : observed input (probably passed through encoder to construct state)
 // latentState : State to decode
 // distributionFn : decoder output -> Distribution
 //
 // Return approximate distribution object constructed from decoder
-var seq_decodeDistribution = function(decoder, latentState, distributionFn) {
-    var output = _seq_beamDecode(decoder);
+var seq_decodeDistribution = function(decoder, input, latentState, distributionFn) {
+    var output = _seq_beamDecode(decoder, input, undefined, [latentState]);
     return distributionFn(output);
 };
 
 // seq_decodeSample
 //
 // decoder : decoder initialized by seq_initDecoder
+// input : observed input (probably passed through encoder to construct state)
 // latentState : state to decode
 // distributionFn : decoder output -> Distribution
 // [maybeObserved] : Observation to factor on
 //
 // Return sample from distribution given maybeObservation
-var seq_decodeSample = function(decoder, latentState, distributionFn, maybeObserved) {
+var seq_decodeSample = function(decoder, input, latentState, distributionFn, maybeObserved) {
     if (decoder.samplingType === SEQ_DECODER_APPROXIMATE_BEAM) {
-        var output = _seq_beamDecode(decoder, maybeObserved);
+        var output = _seq_beamDecode(decoder, input, maybeObserved, [latentState]);
         var Dist = distributionFn(output);
         return util_observeHelper(Dist, maybeObserved);
     } else if (decoder.samplingType === SEQ_DECODER_EXACT) {
-        return _seq_exactDecodeSample(decoder, distributionFn, maybeObserved);
+        return _seq_exactDecodeSample(decoder, input, distributionFn, maybeObserved, latentState);
     }
 };
 
 // _seq_beamDecode
 //
 // decoder : decoder initialized by seq_initDecoder
+// input : observed input (probably passed through encoder to construct state)
 // [maybeObserved] : optional observed sequence
 // [maybeStates]
 // [maybeSeqs]
 // [maybeScores]
 // [maybeK]
-var _seq_beamDecode = function(decoder, maybeObserved, maybeStates, maybeSeqs, maybeScores, maybeK) {
+var _seq_beamDecode = function(decoder, input, maybeObserved, maybeStates, maybeSeqs, maybeScores, maybeK) {
     var states = maybeStates || [decoder.initialState];
     var seqs = maybeSeqs || repeat(states.length, function() { [ decoder.startSymbol ] });
     var scores = maybeScores || repeat(seqs.length, function() { 0.0 });
     var k = maybeK || decoder.maxLength;
+    var stepFn = decoder.stepFn;
 
     var nextScores = _.flatten(mapIndexed(
         function(index, state) {
             var seq = seqs[index];
             var score = scores[index];
-            var nextStateAndOutputs = decoder.stepFn(state, seq);
+            var nextStateAndOutputs = stepFn(state, seq, input);
             var nextState = nextStateAndOutputs.state;
             var indObserved = (maybeObserved !== undefined)
                 && (maybeObserved.length >= seq.length) && _.isEqual(_.first(maybeObserved, seq.length), seq);
@@ -166,13 +177,14 @@ var _seq_beamDecode = function(decoder, maybeObserved, maybeStates, maybeSeqs, m
     }
 };
 
-var _seq_exactDecodeSample = function(decoder, distributionFn, maybeObserved, maybeState, maybeSeq, maybeK) {
+var _seq_exactDecodeSample = function(decoder, input, distributionFn, maybeObserved, maybeState, maybeSeq, maybeK) {
     var state = maybeState || decoder.initialState;
     var seq = maybeSeq || [decoder.startSymbol];
     var remainingObs = maybeObserved;
     var k = maybeK || decoder.maxLength;
+    var stepFn = decoder.stepFn;
 
-    var nextStateAndOutputs = decoder.stepFn(state, seq);
+    var nextStateAndOutputs = stepFn(state, seq, input);
     var nextState = nextStateAndOutputs.state;
 
     var Dist = distributionFn(nextStateAndOutputs.outputs);

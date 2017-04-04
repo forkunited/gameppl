@@ -82,31 +82,34 @@ var nn_initDecoder = function(params) {
 // nn_applyDecoder
 //
 // decoder : decoder initialized by nn_initDecoder
+// input : observed input (probably passed through encoder to construct state)
 // latentState : state output by an encoder
-var nn_applyDecoder = function(decoder, latentState) {
+var nn_applyDecoder = function(decoder, input, latentState) {
     return decoder(latentState);
 };
 
 // nn_decodeDistribution
 //
 // decoder : decoder initialized by nn_initDecoder
+// input : observed input (probably passed through encoder to construct state)
 // latentState : State to decode
 // distributionFn : decoder output -> Distribution
 //
 // Return distribution object constructed from decoder
-var nn_decodeDistribution = function(decoder, latentState, distributionFn) {
+var nn_decodeDistribution = function(decoder, input, latentState, distributionFn) {
     return distributionFn(nn_applyDecoder(decoder, latentState));
 };
 
 // nn_decodeSample
 //
 // decoder : decoder initialized by nn_initDecoder
+// input : observed input (probably passed through encoder to construct state)
 // latentState : state to decode
 // distributionFn : decoder output -> Distribution
 // [maybeObservation] : Observation to factor on
 //
 // Return sample from distribution given maybeObservation
-var nn_decodeSample = function(decoder, latentState, distributionFn, maybeObservation) {
+var nn_decodeSample = function(decoder, input, latentState, distributionFn, maybeObservation) {
     var Dist = nn_decodeDistribution(decoder, latentState, distributionFn);
     return util_observeHelper(Dist, maybeObservation);
 };
@@ -137,9 +140,9 @@ var nn_initSequenceDecoderStep = function(params) {
     var stepType = params.maybeStepType || NN_SEQUENCE_STEP_LSTM; // Unused for now
     var dec_net_h = lstm(params.latentDimension, 'seq_dec_layer_0_' + params.name, param);
     var dec_net_out = stack([softmax, affine(params.outputDimension, 'seq_dec_out' + params.name, param), concat]);
-    return function(x_prev, state) {
+    return function(state, xs_prev) {
         assert.ok(dims(state)[0] === params.latentDimension, 'Previous hidden vector has unexpected dimension');
-        var v = oneHot(x_prev, params.outputDimension);
+        var v = oneHot(x_prev[xs_prev.length - 1], params.outputDimension);
         var nextState = dec_net_h(state, v);
         var ps = dec_net_out([nextState, v]);
         var output = mapIndexed(function(value, score) { return { value : value, score : score } }, ps.data);

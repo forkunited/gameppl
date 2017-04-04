@@ -1,0 +1,151 @@
+// Run with:
+// webppl test/wppl/train_model_seqS1.wppl --require webppl-nn --require . --random-seed 1 --iterations 100 --latentDim 25 --inputF Ld_in --outputF Ld_out
+
+var args = parseArgs();
+var rootDir = args["rootDir"];
+var inputFName = args["inputF"];
+var outputFName = args["outputF"];
+var iterations = args["iterations"]*1;
+var latentDim = args["latentDim"]*1;
+var maxUtteranceLength = 10;
+var approximationBeamSize = 5;
+var batchSize = 100;
+var gradientSamples = 1;
+
+var inputF = gameppl.feature.loadFeatureMatrix(rootDir + "/examples/features/mat/" + inputFName);
+var outputF = gameppl.feature.loadFeatureMatrix(rootDir + "/examples/features/mat/" + outputFName);
+
+var D = data_makeDataFromFeatureMatrices(inputF, outputF, { inputType : DATA_TYPE_VECTOR, outputType : DATA_TYPE_SCALAR_SEQUENCE });
+var partition = gameppl.partition.load(rootDir + "/examples/games/splits/1/default");
+var D_split = gameppl.partition.split(partition, D, gameppl.data.getDatumGame);
+var D_train = D_split['train'];
+var D_dev = D_split['dev'];
+
+/* Utterance language model */
+
+var s_encoderType = ENC_NN;
+var s_encoderParamFn = function() {
+    return {
+        name : "enc_S",
+        encoderType : NN_ENCODER_CONSTANT,
+        latentDimension : latentDim
+    };
+};
+
+var s_decoderType = ENC_SEQ;
+var s_decoderParamFn = function() {
+    return {
+        initStepFn : nn_initSequenceDecoderStep,
+        stepParams : {
+            name : "dec_S",
+            latentDimension : latentDim
+        },
+        startSymbol : gameppl.feature.symbols.START_SYMBOL,
+        terminalSymbol : gameppl.feature.symbols.TERMINAL_SYMBOL,
+        maxLength : maxUtteranceLength,
+        samplingType : SEQ_DECODER_EXACT,
+        approximationBeamSize : approximationBeamSize
+    };
+};
+
+var s_trainingParams = {
+    iterations : iterations,
+    gradientSamples : gradientSamples,
+    batchSize : batchSize,
+    encoderType : s_encoderType,
+    decoderType : s_decoderType,
+    encoderParamFn : s_encoderParamFn,
+    decoderParamFn : s_decoderParamFn,
+    distributionFn : util_objCategorical
+};
+
+var s_model = enc_initTrainedModel(s_trainingParams, D_train);
+
+/* L0 */
+
+var l0encoderType = ENC_SEQ;
+var l0encoderParams = {
+    initStepFn : nn_initSequenceEncoderStep,
+    stepParams : {
+        name : "enc_L0",
+        latentDimension : latentDim
+    },
+    makeInitialStateFn : function() {
+        return nn_initEncoder({name : "enc_init_L0", encoderType : NN_ENCODER_CONSTANT, latentDimension : latentDim });
+    }
+};
+
+var l0decoderType = ENC_NN;
+var l0decoderParams = {
+    name: "dec_L0",
+    decoderType :  NN_DECODER_SIGMOID,
+    outputDimension : gameppl.feature.getFeatureMatrixVocabularySize(inputF)
+};
+
+/* S1 */
+
+var s1encoderType = ENC_NN;
+var s1encoderParamFn = function() {
+    return {
+        name : "enc_S1",
+        encoderType : NN_ENCODER_CONSTANT,
+        latentDimension : latentDim
+    };
+};
+
+var s1decoderType = ENC_SEQ;
+var s1decoderParamFn = function() {
+    return {
+        initStepFn : function() {
+            var l0model = enc_initModel({
+                encoderType : l0encoderType,
+                decoderType : l0decoderType,
+                encoderParams : l0encoderParams,
+                decoderParams : l0decoderParams });
+
+            var distFn = function(output) {
+                return MultivariateBernoulli({ ps : output });
+            };
+
+            return function(state, seq, world) {
+                var s_stepFn = seq_getDecoderStepFn(enc_getDecoder(s_model));
+                var s_out = s_stepFn(state, seq);
+                return {
+                    state : s_out.state,
+                    output : map(function(output) {
+                        var Dist = enc_modelDistribution(l0model, seq.concat([output.value]), distFn);
+                        var l0Score = Dist.score(world);
+
+                        return {
+                            value : output.value,
+                            score : output.score,
+                            heuristic : l0score
+                        }
+                    }, s_out.outputs)
+                }
+            };
+        },
+        stepParams : {
+            name : "dec_S1",
+            latentDimension : latentDim
+        },
+        startSymbol : gameppl.feature.symbols.START_SYMBOL,
+        terminalSymbol : gameppl.feature.symbols.TERMINAL_SYMBOL,
+        maxLength : maxUtteranceLength,
+        samplingType : SEQ_DECODER_APPROXIMATE_BEAM,
+        approximationBeamSize : approximationBeamSize
+    };
+};
+
+var trainingParams = {
+    iterations : iterations,
+    gradientSamples : gradientSamples,
+    batchSize : batchSize,
+    encoderType : s1encoderType,
+    decoderType : s1decoderType,
+    encoderParamFn : s1encoderParamFn,
+    decoderParamFn : s1decoderParamFn,
+    distributionFn : util_objSoftmaxCategorical
+};
+
+var model = enc_initTrainedModel(trainingParams, D_train);
