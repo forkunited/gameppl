@@ -12,6 +12,10 @@ var approximationBeamSize = 5;
 var batchSize = 100;
 var gradientSamples = 1;
 
+
+var inputf = gameppl.feature.loadFeatureSet(rootDir + "/examples/features/vocab/" + inputFName);
+var outputf = gameppl.feature.loadFeatureSet(rootDir + "/examples/features/vocab/" + outputFName);
+
 var inputF = gameppl.feature.loadFeatureMatrix(rootDir + "/examples/features/mat/" + inputFName);
 var outputF = gameppl.feature.loadFeatureMatrix(rootDir + "/examples/features/mat/" + outputFName);
 
@@ -33,11 +37,9 @@ var encoderParamFn = function() {
 var decoderType = ENC_SEQ;
 var decoderParamFn = function() {
     return {
+        name : "dec_S0",
+        latentDimension : latentDim,
         initStepFn : nn_initSequenceDecoderStep,
-        stepParams : {
-            name : "dec_S0",
-            latentDimension : latentDim
-        },
         startSymbol : gameppl.feature.symbols.START_SYMBOL,
         terminalSymbol : gameppl.feature.symbols.TERMINAL_SYMBOL,
         maxLength : maxUtteranceLength,
@@ -57,4 +59,21 @@ var trainingParams = {
     distributionFn : util_objCategorical
 };
 
-var model = enc_initTrainedModel(trainingParams, D_train);
+var s0model = enc_initTrainedModel(trainingParams, D_train);
+
+_.map(function(datum) {
+    var inputIndices = gameppl.matrix.rowTensorNonZeroIndices(datum.input);
+    var inputFeatures = gameppl.feature.getFeatureSetDimensionsFromIndices(inputf, inputIndices);
+    var trueOutputSequence = gameppl.feature.getFeatureSetDimensionsFromIndices(outputf, datum.output);
+
+    display("Input: " + inputFeatures);
+    display("True output: " + trueOutputSequence);
+
+    display("Output distribution: ")
+    var s0Dist = enc_modelDistribution(s0model, datum.input, util_objCategorical);
+    var s0ReadableDist = map(function(kvPair) {
+        display(gameppl.feature.getFeatureSetDimensionsFromIndices(outputf, kvPair[0]) + ": " + kvPair[1]);
+    }, gameppl.dist.distToArray(s1Dist, 3));
+
+    display("\n");
+}, D_dev);

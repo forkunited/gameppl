@@ -86,13 +86,23 @@ var matrixToRowTensorList = function(M) {
     for (var i = 0; i < M.m; i++) {
         var t = new Tensor([M.n, 1])
         for (var key in M.mat[i].vec) {
-            t.data[parseInt(key)] = M.mat[i].vec[key];
+            t.data[parseInt(key)] = M.mat[i].vec[key]; // FIXME Badness
         }
 
         L.push(t);
     }
     return L;
-}
+};
+
+var rowTensorNonZeroIndices = function(v) {
+    var indices = [];
+    for (var i = 0; i < t.data.length; i++) { // FIXME Badness
+        if (t.data[i] !== 0.0) {
+            indices.push(i);
+        }
+    }
+    return indices;
+};
 
 module.exports = {
     vectorInit: vectorInit,
@@ -106,5 +116,6 @@ module.exports = {
     matrixGetRowVector : matrixGetRowVector,
     matrixAddRowVector : matrixAddRowVector,
     matrixRowProductCat : matrixRowProductCat,
-    matrixToRowTensorList : matrixToRowTensorList
+    matrixToRowTensorList : matrixToRowTensorList,
+    rowTensorNonZeroIndices : rowTensorNonZeroIndices
 };

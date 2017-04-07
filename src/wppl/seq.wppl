@@ -6,15 +6,13 @@ const SEQ_DECODER_APPROXIMATE_BEAM = 1;
 //
 // params:
 //   initStepFn : Makes an encoder step function of the form state x input -> next state
-//   stepParams : init step function parameters
 //   makeInitialStateFn : () -> initial latent state
 var seq_initEncoder = function(params) {
-    var initStepFn = params.initStepFn
-    var stepParams = params.stepParams;
+    var initStepFn = params.initStepFn;
     var makeInitialStateFn = params.makeInitialStateFn;
 
-    var stepFn = initStepFn(stepParams);
-    var initialState = makeInitialStateFn();
+    var stepFn = initStepFn(params);
+    var initialState = makeInitialStateFn(params);
 
     var encoderFn = function(xs, maybeState) {
         var state = maybeState || initialState;
@@ -26,7 +24,7 @@ var seq_initEncoder = function(params) {
         }
     };
 
-    return { encoderFn : encoderFn, stepFn : stepFn, initialState : initialState };
+    return _.extend(_.clone(params), { encoderFn : encoderFn, stepFn : stepFn, initialState : initialState });
 };
 
 // seq_applyEncoder
@@ -51,7 +49,6 @@ var seq_getEncoderStepFn = function(encoder) {
 // params:
 //   initStepFn : Makes an decoder step function of the form
 //                  (state x (input seq)) -> (next state, (value, score, heuristic) list)
-//   stepParams : init step function parameters
 //   [makeInitialStateFn] : () -> initial latent state
 //   startSymbol : Sequence start symbol
 //   terminalSymbol : Sequence terminal symbol
@@ -59,22 +56,16 @@ var seq_getEncoderStepFn = function(encoder) {
 //   samplingType : SEQ_DECODER_EXACT, SEQ_DECODER_APPROXIMATE_BEAM
 //   [approximationBeamSize] : Beam size for beam search approximation
 var seq_initDecoder = function(params) {
-    var initStepFn = params.initStepFn
-    var stepParams = params.stepParams;
+    var initStepFn = params.initStepFn;
     var makeInitialStateFn = params.makeInitialStateFn;
 
-    var stepFn = initStepFn(stepParams);
-    var initialState = (makeInitialStateFn !== undefined) ? makeInitialStateFn() : undefined;
+    var stepFn = initStepFn(params);
+    var initialState = (makeInitialStateFn !== undefined) ? makeInitialStateFn(params) : undefined;
 
-    return {
+    return _.extend(_.clone(params), {
         stepFn : stepFn,
-        initialState : initialState,
-        startSymbol : params.startSymbol,
-        terminalSymbol : params.terminalSymbol,
-        maxLength : params.maxLength,
-        samplingType : params.samplingType,
-        approximationBeamSize : params.approximationBeamSize
-    };
+        initialState : initialState
+    });
 };
 
 // seq_getDecoderStep
@@ -89,12 +80,12 @@ var seq_getDecoderStepFn = function(decoder) {
 // decoder : decoder initialized by seq_initDecoder
 // input : observed input (probably passed through encoder to construct state)
 // latentState : State to decode
-// distributionFn : decoder output -> Distribution
+// distributionFn : decoder output, input, decoder -> Distribution
 //
 // Return approximate distribution object constructed from decoder
 var seq_decodeDistribution = function(decoder, input, latentState, distributionFn) {
     var output = _seq_beamDecode(decoder, input, undefined, [latentState]);
-    return distributionFn(output);
+    return distributionFn(output, input, decoder);
 };
 
 // seq_decodeSample
@@ -102,14 +93,14 @@ var seq_decodeDistribution = function(decoder, input, latentState, distributionF
 // decoder : decoder initialized by seq_initDecoder
 // input : observed input (probably passed through encoder to construct state)
 // latentState : state to decode
-// distributionFn : decoder output -> Distribution
+// distributionFn : decoder output, input, decoder -> Distribution
 // [maybeObserved] : Observation to factor on
 //
 // Return sample from distribution given maybeObservation
 var seq_decodeSample = function(decoder, input, latentState, distributionFn, maybeObserved) {
     if (decoder.samplingType === SEQ_DECODER_APPROXIMATE_BEAM) {
         var output = _seq_beamDecode(decoder, input, maybeObserved, [latentState]);
-        var Dist = distributionFn(output);
+        var Dist = distributionFn(output, input, decoder);
         return util_observeHelper(Dist, maybeObserved);
     } else if (decoder.samplingType === SEQ_DECODER_EXACT) {
         return _seq_exactDecodeSample(decoder, input, distributionFn, maybeObserved, latentState);
@@ -187,7 +178,7 @@ var _seq_exactDecodeSample = function(decoder, input, distributionFn, maybeObser
     var nextStateAndOutputs = stepFn(state, seq, input);
     var nextState = nextStateAndOutputs.state;
 
-    var Dist = distributionFn(nextStateAndOutputs.outputs);
+    var Dist = distributionFn(nextStateAndOutputs.outputs, input, decoder);
     var nextSym = util_observeHelper(Dist, remainingObs ? remainingObs[0] : undefined);
     var nextSeq = seq.concat([ nextSym ]);
     var nextObs = remainingObs ? remainingObs.slice(1) : undefined;

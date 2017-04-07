@@ -42,8 +42,11 @@ var enc_decodeDistribution = function(decoder, input, latentState, distributionF
 };
 
 var enc_initModel = function(params) {
-    return { encoder : enc_initEncoder(params.encoderType, params.encoderParams),
-             decoder : enc_initDecoder(params.decoderType, params.decoderParams) };
+    var modelParams = params.modelParams;
+    var encoderParams = (modelParams === undefined) ? params.encoderParams : _.extend(_.clone(modelParams), params.encoderParams);
+    var decoderParams = (modelParams === undefined) ? params.decoderParams : _.extend(_.clone(modelParams), params.decoderParams);
+    return { encoder : enc_initEncoder(params.encoderType, encoderParams),
+             decoder : enc_initDecoder(params.decoderType, decoderParams) };
 };
 
 var enc_getDecoder = function(model) {
@@ -67,11 +70,14 @@ var enc_modelDistribution = function(model, input, distributionFn) {
 var _enc_initTrainingObj = function(params) {
     return function(data) {
         return function() {
+            var modelParamFn = params.modelParamFn;
             var encoderParamFn = params.encoderParamFn;
             var decoderParamFn = params.decoderParamFn;
+            var modelParams = (modelParamFn !== undefined) ? modelParamFn() : undefined;
             var encoderParams = encoderParamFn();
             var decoderParams = decoderParamFn();
             var model = enc_initModel({
+                modelParams : modelParams,
                 encoderType : params.encoderType,
                 decoderType : params.decoderType,
                 encoderParams : encoderParams,
@@ -105,6 +111,7 @@ var _enc_trainLearningModel = function(trainingObj, data, iterations, gradientSa
 //   distributionFn : decoder output -> distribution
 //   encoderType : (ENC_NN, ENC_SEQ)
 //   decoderType : (ENC_NN, ENC_SEQ)
+//   [modelParamFn] : () -> Model parameters
 //   encoderParamFn : () -> Encoder parameters
 //   decoderParamFn : () -> Decoder parameters
 //   [batchSize] : mini-batch size

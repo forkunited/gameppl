@@ -447,23 +447,42 @@ var saveFeatureMatrix = function(F, outputFile) {
 
 var getFeatureMatrixData = function(F) {
     return F.D;
-}
+};
 
 var getFeatureMatrixFromDatum = function(d) {
     return d.F;
-}
+};
 
 var getGameFromDatum = function(d) {
     return d.game;
-}
+};
 
 var getFeatureSetSize = function(f) {
     return f.size;
-}
+};
 
 var getFeatureMatrixVocabularySize = function(f) {
     return f.vocabularySize;
-}
+};
+
+var getFeatureSetDimensionFromIndex = function(f, index) {
+    var fIndex = 0;
+    for (var j = 0; j < f.vector.length; j++) {
+        var feature = f.features[f.vector[j]];
+
+        if (fIndex + feature.size > index) {
+            return bilookup.get(feature.vocabulary, index - fIndex);
+        }
+
+        fIndex += feature.size;
+    }
+
+    return undefined;
+};
+
+var getFeatureSetDimensionsFromIndices = function(f, indices) {
+    return _.map(indices, getFeatureSetDimensionFromIndex);
+};
 
 module.exports = {
     types : types,
@@ -489,5 +508,7 @@ module.exports = {
     getFeatureMatrixFromDatum : getFeatureMatrixFromDatum,
     getGameFromDatum : getGameFromDatum,
     getFeatureSetSize : getFeatureSetSize,
-    getFeatureMatrixVocabularySize : getFeatureMatrixVocabularySize
+    getFeatureMatrixVocabularySize : getFeatureMatrixVocabularySize,
+    getFeatureSetDimensionFromIndex : getFeatureSetDimensionFromIndex,
+    getFeatureSetDimensionsFromIndices : getFeatureSetDimensionsFromIndices
 };
