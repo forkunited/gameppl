@@ -80,6 +80,8 @@ var split = function(part, D, fn) {
             }
         }
     }
+
+    return splitD;
 };
 
 var mapKeysAndValues = function(part, keyFn, valueFn) {

@@ -50,7 +50,7 @@ var enc_initModel = function(params) {
 };
 
 var enc_getDecoder = function(model) {
-    return model.decoder;
+    return model.decoder.obj;
 };
 
 var enc_modelSample = function(model, input, distributionFn, maybeObservation) {
@@ -64,6 +64,7 @@ var enc_modelDistribution = function(model, input, distributionFn) {
     var encoder = model.encoder;
     var decoder = model.decoder;
     var latentState = enc_applyEncoder(encoder, input);
+
     return enc_decodeDistribution(decoder, input, latentState, distributionFn);
 };
 
@@ -98,6 +99,7 @@ var _enc_trainLearningModel = function(trainingObj, data, iterations, gradientSa
     var trainingResults = Optimize(trainingObj(data),
         {
             steps: iterations,
+            showGradNorm: true,
             estimator : { ELBO : { samples : gradientSamples }},
         });
     return sample(SampleGuide(trainingObj(), { params: trainingResults }));

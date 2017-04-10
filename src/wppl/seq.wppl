@@ -20,7 +20,7 @@ var seq_initEncoder = function(params) {
             return state;
         } else {
             var nextState = stepFn(state, xs[0]);
-            return encoder(xs.slice(1), nextState);
+            return encoderFn(xs.slice(1), nextState);
         }
     };
 
@@ -130,7 +130,7 @@ var _seq_beamDecode = function(decoder, input, maybeObserved, maybeStates, maybe
             var nextStateAndOutputs = stepFn(state, seq, input);
             var nextState = nextStateAndOutputs.state;
             var indObserved = (maybeObserved !== undefined)
-                && (maybeObserved.length >= seq.length) && _.isEqual(_.first(maybeObserved, seq.length), seq);
+                && (maybeObserved.length >= seq.length) && _.isEqual(gameppl.util._first(maybeObserved, seq.length), seq);
 
             return map(function(output) {
                 var nextOutput = output.value;
@@ -152,7 +152,7 @@ var _seq_beamDecode = function(decoder, input, maybeObserved, maybeStates, maybe
         }, states));
 
     var sortedNextScores = sort(nextScores, gt, function(obj) { (obj.fixed) ? Infinity : obj.nextHeuristicScore });
-    var nextBeam = _.first(sortedNextScores, decoder.approximationBeamSize);
+    var nextBeam = gameppl.util._first(sortedNextScores, decoder.approximationBeamSize);
 
     // Make next states, seqs, scores
     // Check all terminated
@@ -164,7 +164,7 @@ var _seq_beamDecode = function(decoder, input, maybeObserved, maybeStates, maybe
     if (decoder.maxLength <= 1 || k === 1 || allTerminal) {
         return map2(function(seq, score) { return { value : seq, score : score } }, nextSeqs, nextScores);
     } else {
-        return _seq_beamDecode(decoder, maybeObserved, nextStates, nextSeqs, nextScores, k-1);
+        return _seq_beamDecode(decoder, input, maybeObserved, nextStates, nextSeqs, nextScores, k-1);
     }
 };
 
@@ -182,10 +182,9 @@ var _seq_exactDecodeSample = function(decoder, input, distributionFn, maybeObser
     var nextSym = util_observeHelper(Dist, remainingObs ? remainingObs[0] : undefined);
     var nextSeq = seq.concat([ nextSym ]);
     var nextObs = remainingObs ? remainingObs.slice(1) : undefined;
-
     if (decoder.maxLength <= 1 || k === 1 || nextSym === decoder.terminalSymbol ) {
         return nextSeq;
     } else {
-        return _seq_exactDecodeSample(decoder, distributionFn, nextObs, nextState, nextSeq, k-1);
+        return _seq_exactDecodeSample(decoder, input, distributionFn, nextObs, nextState, nextSeq, k-1);
     }
 };

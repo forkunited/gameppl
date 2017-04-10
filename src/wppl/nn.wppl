@@ -7,16 +7,11 @@ var NN_ENCODER_CONSTANT = 1;
 
 var NN_SEQUENCE_STEP_LSTM = 0;
 
-//var makeModelParam = param; // modelParamL2(10);
-
 var _nn_makeModelParam = function(name, maybeDims) {
     guide(function () {
-        if (globalStore.nnParams === undefined)
-            globalStore.nnParams = {};
-        globalStore.nnParams[name] = param({ name : [name, uniqueID].join('_'), dims : maybeDims });
+        globalStore['nnParams_' + name] = param({ name : 'nnParams_' + name, dims : maybeDims });
     });
-
-    return globalStore.nnParams[name];
+    return globalStore['nnParams_' + name];
 }
 
 // _nn_makeState
@@ -25,7 +20,7 @@ var _nn_makeModelParam = function(name, maybeDims) {
 //   name : Reference name
 //   dimension : Dimension of state
 var _nn_makeState = function(params) {
-    return makeModelParam("state_" + params.name,  [params.dimension, 1]);
+    return _nn_makeModelParam("state_" + params.name,  [params.dimension, 1]);
 };
 
 
@@ -34,16 +29,18 @@ var _nn_makeState = function(params) {
 // params:
 //   name : Reference name
 //   encoderType : (NN_ENCODER_TANH, NN_ENCODER_CONSTANT)
+//   inputDimension : Dimension of the input
 //   latentDimension : Dimension of hidden state
 var nn_initEncoder = function(params) {
     if (params.encoderType === NN_ENCODER_TANH) {
         return stack([
             tanh,
-            bias("enc_bias_0_" + params.name, param),
-            affine(params.latentDimension, 'enc_layer_0_' + params.name, param)
+            bias("enc_bias_0_" + params.name, { out : params.latentDimension, param : modelParam }),
+            affine('enc_layer_0_' + params.name, { in : params.inputDimension, out : params.latentDimension, param : modelParam })
         ]);
     } else if (params.encoderType == NN_ENCODER_CONSTANT) {
-        return function() { _nn_makeState({ name : params.name, dimension : params.latentDimension }) };
+        var initialState = _nn_makeState({ name : params.name, dimension : params.latentDimension });
+        return function() { return initialState };
     }
 };
 
@@ -60,21 +57,22 @@ var nn_applyEncoder = function(encoder, input) {
 // params:
 //   name : Reference name
 //   decoderType : Activation function at output later (NN_DECODER_SIGMOID, NN_DECODER_LINEAR, NN_DECODER_SOFTMAX)
+//   latentDimension : Dimension of latent input
 //   outputDimension : Dimension of output later
 var nn_initDecoder = function(params) {
     if (params.decoderType == NN_DECODER_SIGMOID) {
         return stack([
             sigmoid,
-            affine(params.outputDimension, 'dec_layer_0_' + params.name, param)
+            affine('dec_layer_0_' + params.name, { in : params.latentDimension, out : params.outputDimension, param : modelParam })
         ]);
     } else if (params.decoderType == NN_DECODER_LINEAR) {
         return stack([
-            affine(params.outputDimension, 'dec_layer_0_' + params.name, param)
+            affine('dec_layer_0_' + params.name, { in : params.latentDimension, out : params.outputDimension, param : modelParam })
         ]);
     } else if (params.decoderType == NN_DECODER_SOFTMAX) {
         return stack([
             softmax,
-            affine(params.outputDimension, 'dec_layer_0_' + params.name, param)
+            affine('dec_layer_0_' + params.name, { in : params.latentDimension, out : params.outputDimension, param : modelParam })
         ]);
     }
 };
@@ -97,7 +95,7 @@ var nn_applyDecoder = function(decoder, input, latentState) {
 //
 // Return distribution object constructed from decoder
 var nn_decodeDistribution = function(decoder, input, latentState, distributionFn) {
-    return distributionFn(nn_applyDecoder(decoder, latentState), input, decoder);
+    return distributionFn(nn_applyDecoder(decoder, input, latentState), input, decoder);
 };
 
 // nn_decodeSample
@@ -119,13 +117,15 @@ var nn_decodeSample = function(decoder, input, latentState, distributionFn, mayb
 // params:
 //   name : Reference name
 //   latentDimension : Dimension of hidden state (must be even)
+//   inputDimension : Dimension of the input
 var nn_initSequenceEncoderStep = function(params) {
     assert.ok(params.latentDimension % 2 === 0, 'Dimension for sequence model expected to be even');
     var stepType = params.maybeStepType || NN_SEQUENCE_STEP_LSTM; // Unused for now
-    var enc_net = lstm(params.latentDimension, 'seq_enc_h_0_' + params.name, param);
+    var enc_net = lstm('seq_enc_h_0_' + params.name, { hdim : params.latentDimension, xdim : params.inputDimension, param : modelParam });
     return function(prevState, x) {
         assert.ok(dims(prevState)[0] === params.latentDimension, 'Previous hidden vector has unexpected dimension');
-        var nextState = enc_net(prevState, x);
+        var x_v = oneHot(x, params.inputDimension);
+        var nextState = enc_net(prevState, x_v);
         return nextState;
     };
 };
@@ -135,17 +135,19 @@ var nn_initSequenceEncoderStep = function(params) {
 // params:
 //   name : Reference name
 //   latentDimension : Dimension of hidden state (must be even)
+//   outputDimension : Dimension of output
 var nn_initSequenceDecoderStep = function(params) {
     assert.ok(params.latentDimension % 2 === 0, 'Dimension for sequence model expected to be even');
     var stepType = params.maybeStepType || NN_SEQUENCE_STEP_LSTM; // Unused for now
-    var dec_net_h = lstm(params.latentDimension, 'seq_dec_layer_0_' + params.name, param);
-    var dec_net_out = stack([softmax, affine(params.outputDimension, 'seq_dec_out' + params.name, param), concat]);
+    var dec_net_h = lstm('seq_dec_layer_0_' + params.name, { hdim : params.latentDimension, xdim : params.outputDimension, param : modelParam });
+    var dec_net_out = stack([softmax, affine('seq_dec_out' + params.name, { in : params.latentDimension + params.outputDimension, out : params.outputDimension, param : modelParam }), concat]);
     return function(state, xs_prev) {
         assert.ok(dims(state)[0] === params.latentDimension, 'Previous hidden vector has unexpected dimension');
-        var v = oneHot(x_prev[xs_prev.length - 1], params.outputDimension);
+        var v = oneHot(xs_prev[xs_prev.length - 1], params.outputDimension);
         var nextState = dec_net_h(state, v);
         var ps = dec_net_out([nextState, v]);
-        var output = mapIndexed(function(value, score) { return { value : value, score : score } }, ps.data);
-        return { output : output, state: nextState }
+        var pOut = (ps.x === undefined) ? ps.toFlatArray() : ps.x.toFlatArray(); // FIXME Bad
+        var outputs = mapIndexed(function(value, score) { return { value : value, score : score } }, pOut);
+        return { outputs : outputs, state: nextState }
     };
 };

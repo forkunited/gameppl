@@ -92,6 +92,12 @@ var argmax = function(vector) {
 	}
 
 	return max_i;
+};
+
+// Necessary because webppl
+// drops the second argument
+var _first = function(l, n) {
+	return _.first(l, n);
 }
 
 module.exports = {
@@ -102,6 +108,7 @@ module.exports = {
 	objectToString : objectToString,
 	objectListToTSVString : objectListToTSVString,
 	makeObject : makeObject,
-	argmax : argmax
+	argmax : argmax,
+	_first : _first
 }
 

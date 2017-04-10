@@ -1,9 +1,17 @@
 var _ = require("underscore");
 
 var distToObject = function(dist, roundPlace) {
-	return _.mapObject(dist.params.dist, function(val, key) {
-		return round(val.prob, roundPlace); 
-	});
+	if (dist.params.vs !== undefined) {
+		var obj = {};
+		for (var i = 0; i < dist.params.vs.length; i++) {
+			obj[dist.params.vs[i]] = dist.params.ps[i];
+		}
+		return obj;
+    } else {
+        return _.mapObject(dist.params.dist, function (val, key) {
+            return round(val.prob, roundPlace);
+        });
+    }
 }
 
 var distToArray = function(dist, round) {

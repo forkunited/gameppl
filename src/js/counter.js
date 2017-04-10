@@ -34,9 +34,9 @@ var buildIndex = function(c, fixedIndices) {
     if (fixedIndices) {
         for (var i = 0; i < keys.length; i++) {
             if (keys[i] in fixedIndices) {
-                var index = fixedIndices[keys[i]];
-                var temp = keys[index];
-                keys[index] = keys[i];
+                var idx = fixedIndices[keys[i]];
+                var temp = keys[idx];
+                keys[idx] = keys[i];
                 keys[i] = temp;
             }
         }

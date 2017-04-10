@@ -74,6 +74,7 @@ var data_makeFromFeatureMatrices = function(inputF, outputF, params) {
 		return {
 			id : id,
 			game : gameppl.feature.getGameFromDatum(outputf),
+			round : gameppl.feature.getRoundFromDatum(outputf),
 			input : input,
 			output : output };
 	}, gameppl.feature.getFeatureMatrixData(inputF)));

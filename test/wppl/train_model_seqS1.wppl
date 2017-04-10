@@ -1,15 +1,17 @@
 // Run with:
-// webppl test/wppl/train_model_seqS1.wppl --require webppl-nn --require . --random-seed 1 --iterations 100 --latentDim 25 --inputF Ld_in --outputF Ld_out
+// webppl test/wppl/train_model_seqS1.wppl --require webppl-nn --require . --random-seed 1 --iterations 100 --latentDim 25 --inputF Ld_in --outputF Ld_out --splitName default --splitType GAME_ROUND
 
-var args = parseArgs();
+var args = util_parseArgs();
 var rootDir = args["rootDir"];
 var inputFName = args["inputF"];
 var outputFName = args["outputF"];
 var iterations = args["iterations"]*1;
 var latentDim = args["latentDim"]*1;
-var maxUtteranceLength = 10;
-var approximationBeamSize = 5;
-var batchSize = 100;
+var splitName = args["splitName"];
+var splitType = args["splitType"];
+var maxUtteranceLength = 4;
+var approximationBeamSize = 3;
+var batchSize = 10;
 var gradientSamples = 1;
 
 var inputf = gameppl.feature.loadFeatureSet(rootDir + "/examples/features/vocab/" + inputFName);
@@ -18,9 +20,11 @@ var outputf = gameppl.feature.loadFeatureSet(rootDir + "/examples/features/vocab
 var inputF = gameppl.feature.loadFeatureMatrix(rootDir + "/examples/features/mat/" + inputFName);
 var outputF = gameppl.feature.loadFeatureMatrix(rootDir + "/examples/features/mat/" + outputFName);
 
-var D = data_makeDataFromFeatureMatrices(inputF, outputF, { inputType : DATA_TYPE_VECTOR, outputType : DATA_TYPE_SCALAR_SEQUENCE });
-var partition = gameppl.partition.load(rootDir + "/examples/games/splits/1/default");
-var D_split = gameppl.partition.split(partition, D, gameppl.data.getDatumGame);
+var D = data_makeFromFeatureMatrices(inputF, outputF, { inputType : DATA_TYPE_VECTOR, outputType : DATA_TYPE_SCALAR_SEQUENCE });
+var partition = gameppl.partition.load(rootDir + "/examples/games/splits/1/" + splitName);
+var splitFn = (splitType === "GAME") ? gameppl.data.getDatumGame : (splitType === "ROUND") ? gameppl.data.getDatumRound : gameppl.data.getDatumGameRound;
+
+var D_split = gameppl.partition.split(partition, D, splitFn);
 var D_train = D_split['train'];
 var D_dev = D_split['dev'];
 
@@ -30,6 +34,7 @@ var s_encoderType = ENC_NN;
 var s_encoderParamFn = function() {
     return {
         name : "enc_S",
+        inputDimension : 0,
         encoderType : NN_ENCODER_CONSTANT,
         latentDimension : latentDim
     };
@@ -40,6 +45,7 @@ var s_decoderParamFn = function() {
     return {
         name : "dec_S",
         latentDimension : latentDim,
+        outputDimension : gameppl.feature.getFeatureMatrixVocabularySize(outputF),
         initStepFn : nn_initSequenceDecoderStep,
         startSymbol : gameppl.feature.symbols.START_SYMBOL,
         terminalSymbol : gameppl.feature.symbols.TERMINAL_SYMBOL,
@@ -68,9 +74,11 @@ var l0encoderType = ENC_SEQ;
 var l0encoderParams = {
     name : "enc_L0",
     latentDimension : latentDim,
+    inputDimension : gameppl.feature.getFeatureMatrixVocabularySize(outputF),
     initStepFn : nn_initSequenceEncoderStep,
     makeInitialStateFn : function() {
-        return nn_initEncoder({name : "enc_init_L0", encoderType : NN_ENCODER_CONSTANT, latentDimension : latentDim });
+        var enc_state_fn = nn_initEncoder({name : "enc_init_L0", encoderType : NN_ENCODER_CONSTANT, latentDimension : latentDim });
+        return enc_state_fn();
     }
 };
 
@@ -78,6 +86,7 @@ var l0decoderType = ENC_NN;
 var l0decoderParams = {
     name: "dec_L0",
     decoderType :  NN_DECODER_SIGMOID,
+    latentDimension : latentDim,
     outputDimension : gameppl.feature.getFeatureMatrixVocabularySize(inputF)
 };
 
@@ -105,6 +114,7 @@ var s1encoderParamFn = function() {
     return {
         name : "enc_S1",
         encoderType : NN_ENCODER_CONSTANT,
+        inputDimension : gameppl.feature.getFeatureMatrixVocabularySize(inputF),
         latentDimension : latentDim
     };
 };
@@ -118,20 +128,25 @@ var s1decoderParamFn = function() {
             return function(state, seq, world) {
                 var s_stepFn = seq_getDecoderStepFn(enc_getDecoder(s_model));
                 var s_out = s_stepFn(state, seq);
+                globalStore["x"] = 0;
+                var outputs = map(function(output) {
+                    var l0distFn = params.l0distFn;
+                    var l0model = params.l0model;
+                    var Dist = enc_modelDistribution(l0model, seq.concat([output.value]), l0distFn);
+                    var l0score = Dist.score(world);
+                    display(globalStore["x"]);
+                    globalStore["x"] = globalStore["x"] + 1;
+                    display(l0score);
+                    return {
+                        value : output.value,
+                        score : output.score,
+                        heuristic : l0score
+                    }
+                }, s_out.outputs);
+
                 return {
                     state : s_out.state,
-                    output : map(function(output) {
-                        var l0distFn = params.l0distFn;
-                        var l0model = params.l0model;
-                        var Dist = enc_modelDistribution(l0model, seq.concat([output.value]), l0distFn);
-                        var l0Score = Dist.score(world);
-
-                        return {
-                            value : output.value,
-                            score : output.score,
-                            heuristic : l0score
-                        }
-                    }, s_out.outputs)
+                    outputs : outputs
                 }
             };
         },
@@ -168,12 +183,14 @@ var trainingParams = {
 
 var s1model = enc_initTrainedModel(trainingParams, D_train);
 
-_.map(function(datum) {
+map(function(datum) {
     var inputIndices = gameppl.matrix.rowTensorNonZeroIndices(datum.input);
     var inputFeatures = gameppl.feature.getFeatureSetDimensionsFromIndices(inputf, inputIndices);
+    var inputFeatureValues = map(function(index) { return datum.input[index] }, inputIndices);
     var trueOutputSequence = gameppl.feature.getFeatureSetDimensionsFromIndices(outputf, datum.output);
 
     display("Input: " + inputFeatures);
+    display("(Input values: " + inputFeatureValues + ")");
     display("True output: " + trueOutputSequence);
 
     display("Output distribution: ")

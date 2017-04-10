@@ -136,9 +136,8 @@ var initFeatureUtteranceTokenAnnotationScalar = function(name, inputGameDirector
         }
     }
 
-    counter.increment(c, symbols.TERMINAL_SYMBOL);
-    counter.increment(c, symbols.START_SYMBOL);
-    counter.increment(c, symbols.MISSING_SYMBOL);
+    for (var key in symbols)
+        counter.increment(c, key);
 
     var bi = bilookup.init(counter.buildIndex(c, symbols));
 
@@ -203,9 +202,8 @@ var initFeatureUtteranceTokenAnnotationEnumerable = function(name, inputGameDire
 
     counter.removeLessThan(c, parameters.minCount);
 
-    counter.increment(c, symbols.TERMINAL_SYMBOL);
-    counter.increment(c, symbols.START_SYMBOL);
-    counter.increment(c, symbols.MISSING_SYMBOL);
+    for (var key in symbols)
+        counter.increment(c, key);
 
     var bi = bilookup.init(counter.buildIndex(c, symbols));
 
@@ -457,6 +455,10 @@ var getGameFromDatum = function(d) {
     return d.game;
 };
 
+var getRoundFromDatum = function(d) {
+    return d.round;
+};
+
 var getFeatureSetSize = function(f) {
     return f.size;
 };
@@ -469,9 +471,8 @@ var getFeatureSetDimensionFromIndex = function(f, index) {
     var fIndex = 0;
     for (var j = 0; j < f.vector.length; j++) {
         var feature = f.features[f.vector[j]];
-
         if (fIndex + feature.size > index) {
-            return bilookup.get(feature.vocabulary, index - fIndex);
+            return bilookup.getReverse(feature.vocabulary, (index - fIndex));
         }
 
         fIndex += feature.size;
@@ -481,7 +482,7 @@ var getFeatureSetDimensionFromIndex = function(f, index) {
 };
 
 var getFeatureSetDimensionsFromIndices = function(f, indices) {
-    return _.map(indices, getFeatureSetDimensionFromIndex);
+    return _.map(indices, function(index) { return getFeatureSetDimensionFromIndex(f, index) });
 };
 
 module.exports = {
@@ -507,6 +508,7 @@ module.exports = {
     getFeatureMatrixData : getFeatureMatrixData,
     getFeatureMatrixFromDatum : getFeatureMatrixFromDatum,
     getGameFromDatum : getGameFromDatum,
+    getRoundFromDatum : getRoundFromDatum,
     getFeatureSetSize : getFeatureSetSize,
     getFeatureMatrixVocabularySize : getFeatureMatrixVocabularySize,
     getFeatureSetDimensionFromIndex : getFeatureSetDimensionFromIndex,

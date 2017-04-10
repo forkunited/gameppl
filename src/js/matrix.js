@@ -96,8 +96,8 @@ var matrixToRowTensorList = function(M) {
 
 var rowTensorNonZeroIndices = function(v) {
     var indices = [];
-    for (var i = 0; i < t.data.length; i++) { // FIXME Badness
-        if (t.data[i] !== 0.0) {
+    for (var i = 0; i < v.data.length; i++) { // FIXME Badness
+        if (v.data[i] !== 0.0) {
             indices.push(i);
         }
     }
