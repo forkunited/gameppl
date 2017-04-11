@@ -134,13 +134,15 @@ var s1decoderParamFn = function() {
                     var l0model = params.l0model;
                     var Dist = enc_modelDistribution(l0model, seq.concat([output.value]), l0distFn);
                     var l0score = Dist.score(world);
+
                     display(globalStore["x"]);
                     globalStore["x"] = globalStore["x"] + 1;
                     display(l0score);
+
                     return {
                         value : output.value,
                         score : output.score,
-                        heuristic : l0score
+                        heuristic : ad.lift(l0score)
                     }
                 }, s_out.outputs);
 

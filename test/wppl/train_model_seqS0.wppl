@@ -9,7 +9,7 @@ var iterations = args["iterations"]*1;
 var latentDim = args["latentDim"]*1;
 var splitName = args["splitName"];
 var splitType = args["splitType"];
-var maxUtteranceLength = 10;
+var maxUtteranceLength = 5;
 var approximationBeamSize = 5;
 var batchSize = 100;
 var gradientSamples = 1;
@@ -76,7 +76,7 @@ map(function(datum) {
     display("True output: " + trueOutputSequence);
 
     display("Output distribution: ")
-    var s0Dist = enc_modelDistribution(s0model, datum.input, util_objCategorical);
+    var s0Dist = enc_modelDistribution(s0model, datum.input, util_objSoftmaxCategorical);
     var s0ReadableDist = map(function(kvPair) {
         var indices = map(function(idx) { idx*1 } , kvPair[0].split(","))
         display(gameppl.feature.getFeatureSetDimensionsFromIndices(outputf, indices) + ": " + kvPair[1]);

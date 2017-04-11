@@ -115,11 +115,13 @@ var seq_decodeSample = function(decoder, input, latentState, distributionFn, may
 // [maybeStates]
 // [maybeSeqs]
 // [maybeScores]
+// [maybeHeuristicScores]
 // [maybeK]
-var _seq_beamDecode = function(decoder, input, maybeObserved, maybeStates, maybeSeqs, maybeScores, maybeK) {
+var _seq_beamDecode = function(decoder, input, maybeObserved, maybeStates, maybeSeqs, maybeScores, maybeHeuristicScores, maybeK) {
     var states = maybeStates || [decoder.initialState];
     var seqs = maybeSeqs || repeat(states.length, function() { [ decoder.startSymbol ] });
     var scores = maybeScores || repeat(seqs.length, function() { 0.0 });
+    var heuristicScores = maybeHeuristicScores || repeat(seqs.length, function() { 0.0 });
     var k = maybeK || decoder.maxLength;
     var stepFn = decoder.stepFn;
 
@@ -127,48 +129,73 @@ var _seq_beamDecode = function(decoder, input, maybeObserved, maybeStates, maybe
         function(index, state) {
             var seq = seqs[index];
             var score = scores[index];
-            var nextStateAndOutputs = stepFn(state, seq, input);
-            var nextState = nextStateAndOutputs.state;
-            var indObserved = (maybeObserved !== undefined)
-                && (maybeObserved.length >= seq.length) && _.isEqual(gameppl.util._first(maybeObserved, seq.length), seq);
 
-            return map(function(output) {
-                var nextOutput = output.value;
-                var nextScore = output.score + score;
-                var nextHeuristic = output.heuristic === undefined ? 0.0 : output.heuristic;
-                var nextHeuristicScore = nextHeuristic + output.score + score;
-                var fixed = indObserved
-                    && (maybeObserved.length >= seq.length + 1)
-                    && maybeObserved[seq.length] === nextOutput;
-
-                return { index : index,
-                    nextState : nextState,
-                    nextOutput : nextOutput,
-                    nextScore : nextScore,
-                    nextHeuristicScore : nextHeuristicScore,
-                    fixed : fixed
+            if (seq[seq.length - 1] === decoder.terminalSymbol) {
+                return {
+                    index : index,
+                    nextState : state,
+                    nextOutput : undefined,
+                    nextScore : score,
+                    nextHeuristicScore : heuristicScores[index],
+                    fixed : (maybeObserved !== undefined) && _.isEqual(maybeObserved, seq)
                 };
-            }, nextStateAndOutputs.outputs);
+            } else {
+                var nextStateAndOutputs = stepFn(state, seq, input);
+                var nextState = nextStateAndOutputs.state;
+                var indObserved = (maybeObserved !== undefined)
+                    && (maybeObserved.length >= seq.length) && _.isEqual(gameppl.util._first(maybeObserved, seq.length), seq);
+
+                return map(function (output) {
+                    var nextOutput = output.value;
+                    var nextScore = ad.scalar.add(output.score, score);
+                    var nextHeuristic = output.heuristic === undefined ? ad.lift(0.0) : output.heuristic;
+                    var nextHeuristicScore = ad.scalar.add(nextHeuristic, nextScore);
+                    var fixed = indObserved
+                        && (maybeObserved.length >= seq.length + 1)
+                        && maybeObserved[seq.length] === nextOutput;
+
+                    return {
+                        index: index,
+                        nextState: nextState,
+                        nextOutput: nextOutput,
+                        nextScore: nextScore,
+                        nextHeuristicScore: nextHeuristicScore,
+                        fixed: fixed
+                    };
+                }, nextStateAndOutputs.outputs);
+            }
         }, states));
 
-    var sortedNextScores = sort(nextScores, gt, function(obj) { (obj.fixed) ? Infinity : obj.nextHeuristicScore });
+    var sortedNextScores = sort(nextScores, gt, function(obj) { (obj.fixed) ? Infinity : ad.value(obj.nextHeuristicScore) });
     var nextBeam = gameppl.util._first(sortedNextScores, decoder.approximationBeamSize);
 
     // Make next states, seqs, scores
     // Check all terminated
     var nextStates = map(function(o) { o.nextState }, nextBeam);
-    var nextSeqs = map(function(o) { seqs[o.index].concat(o.nextOutput) }, nextBeam);
+
+    var nextSeqs = map(function(o) {
+        if (o.nextOutput !== undefined) {
+            seqs[o.index].concat(o.nextOutput)
+        } else {
+            seqs[o.index]
+        }
+    }, nextBeam);
+
     var nextScores = map(function(o) { o.nextScore }, nextBeam);
-    var allTerminal = all(function(o) { o.nextOutput === decoder.terminalSymbol }, nextBeam);
+    var nextHeuristicScores = map(function(o) { o.nextHeuristicScore }, nextBeam);
+    var allTerminal = all(function(o) { o.nextOutput === decoder.terminalSymbol || o.nextOutput === undefined }, nextBeam);
 
     if (decoder.maxLength <= 1 || k === 1 || allTerminal) {
         return map2(function(seq, score) { return { value : seq, score : score } }, nextSeqs, nextScores);
     } else {
-        return _seq_beamDecode(decoder, input, maybeObserved, nextStates, nextSeqs, nextScores, k-1);
+        return _seq_beamDecode(decoder, input, maybeObserved, nextStates, nextSeqs, nextScores, nextHeuristicScores, k-1);
     }
 };
 
 var _seq_exactDecodeSample = function(decoder, input, distributionFn, maybeObserved, maybeState, maybeSeq, maybeK) {
+    if (maybeObserved && maybeObserved.length > 0 && maybeObserved[0] === decoder.startSymbol)
+        return _seq_exactDecodeSample(decoder, input, distributionFn, maybeObserved.slice(1), maybeState, maybeSeq, maybeK);
+
     var state = maybeState || decoder.initialState;
     var seq = maybeSeq || [decoder.startSymbol];
     var remainingObs = maybeObserved;

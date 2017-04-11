@@ -146,7 +146,9 @@ var nn_initSequenceDecoderStep = function(params) {
         var v = oneHot(xs_prev[xs_prev.length - 1], params.outputDimension);
         var nextState = dec_net_h(state, v);
         var ps = dec_net_out([nextState, v]);
-        var pOut = (ps.x === undefined) ? ps.toFlatArray() : ps.x.toFlatArray(); // FIXME Bad
+        var pOut = T.toScalars(ps);
+        //display(pOut);
+        //display(ps);
         var outputs = mapIndexed(function(value, score) { return { value : value, score : score } }, pOut);
         return { outputs : outputs, state: nextState }
     };

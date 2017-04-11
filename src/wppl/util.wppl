@@ -201,6 +201,8 @@ var util_observeHelper = function(Dist, val) {
 var util_objCategorical = function(objs) {
     var vs = map(function(obj) { obj.value }, objs);
     var ps = map(function(obj) { obj.score }, objs);
+    //var ps_t = T.fromScalars(ps);
+
     return Categorical({ vs : vs, ps : ps });
 };
 
@@ -208,8 +210,7 @@ var util_objCategorical = function(objs) {
 //
 // values : (value, score) list
 var util_objSoftmaxCategorical = function(objs) {
-    var max = _.max(map(function(obj) { obj.value }, objs));
-    var vs = map(function(obj) { Math.exp(obj.value - max) }, objs);
+    var vs = map(function(obj) { obj.value }, objs);
     var ps = map(function(obj) { obj.score }, objs);
-    return Categorical({ vs : vs, ps : ps });
+    return Categorical({ vs : vs, ps : T.toScalars(T.softmax(T.fromScalars(ps))) });
 };
