@@ -50,14 +50,16 @@ var data_makeFromFeatureMatrices = function(inputF, outputF, params) {
         } else if (dataType == DATA_TYPE_SCALAR) {
         	return vectorSequence[0].data[0];
         } else if (dataType == DATA_TYPE_SCALAR_SEQUENCE) {
-        	return map(function(v) { v.data[0] }, vectorSequence);
+        	return (params.maxSequenceLength === undefined || vectorSequence.length <= params.maxSequenceLength) ?
+				map(function(v) { v.data[0] }, vectorSequence) : undefined;
         } else if (dataType == DATA_TYPE_VECTOR_SEQUENCE) {
-            return vectorSequence;
+            return (params.maxSequenceLength === undefined || vectorSequence.length <= params.maxSequenceLength) ?
+				vectorSequence : undefined;
         }
     }
 
 	var outputD = gameppl.feature.getFeatureMatrixData(outputF);
-	return _.values(mapObject(function(id, inputf) {
+	var D = _.values(mapObject(function(id, inputf) {
 		var outputf = outputD[id];
 		var inputMat = gameppl.feature.getFeatureMatrixFromDatum(inputf);
 		var outputMat = gameppl.feature.getFeatureMatrixFromDatum(outputf);
@@ -78,6 +80,9 @@ var data_makeFromFeatureMatrices = function(inputF, outputF, params) {
 			input : input,
 			output : output };
 	}, gameppl.feature.getFeatureMatrixData(inputF)));
+
+	// Filter undefined inputs and outputs (that happen when a sequence exceeds max length)
+	return filter(function(d) { d.input !== undefined && d.output !== undefined }, D);
 };
 
 var data_splitOnKey = function(D, portion, key) {

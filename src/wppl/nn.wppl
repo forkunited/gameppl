@@ -48,7 +48,7 @@ var nn_initEncoder = function(params) {
 //
 // encoder : encoder initialized by nn_initEncoder
 // input : Input to the encoder
-var nn_applyEncoder = function(encoder, input) {
+var nn_applyEncoder = function(encoder, input, maybeState) {
     return encoder(input);
 }
 
@@ -98,6 +98,20 @@ var nn_decodeDistribution = function(decoder, input, latentState, distributionFn
     return distributionFn(nn_applyDecoder(decoder, input, latentState), input, decoder);
 };
 
+// nn_decodeLL
+//
+// decoder : decoder initialized by nn_initDecoder
+// output : observed output
+// input : observed input (probably passed through encoder to construct state)
+// latentState : State to decode
+// distributionFn : decoder output, input, decoder -> Distribution
+//
+// Return log likelihood score of given output
+var nn_decodeLL = function(decoder, output, input, latentState, distributionFn) {
+    var Dist = distributionFn(nn_applyDecoder(decoder, input, latentState), input, decoder);
+    return Dist.score(output);
+};
+
 // nn_decodeSample
 //
 // decoder : decoder initialized by nn_initDecoder
@@ -116,6 +130,7 @@ var nn_decodeSample = function(decoder, input, latentState, distributionFn, mayb
 //
 // params:
 //   name : Reference name
+//   inputType : DATA_TYPE_VECTOR or DATA_TYPE_SCALAR (defaults to DATA_TYPE_SCALAR)
 //   latentDimension : Dimension of hidden state (must be even)
 //   inputDimension : Dimension of the input
 var nn_initSequenceEncoderStep = function(params) {
@@ -124,7 +139,7 @@ var nn_initSequenceEncoderStep = function(params) {
     var enc_net = lstm('seq_enc_h_0_' + params.name, { hdim : params.latentDimension, xdim : params.inputDimension, param : modelParam });
     return function(prevState, x) {
         assert.ok(dims(prevState)[0] === params.latentDimension, 'Previous hidden vector has unexpected dimension');
-        var x_v = oneHot(x, params.inputDimension);
+        var x_v = (params.inputType === DATA_TYPE_VECTOR) ? x : oneHot(x, params.inputDimension);
         var nextState = enc_net(prevState, x_v);
         return nextState;
     };

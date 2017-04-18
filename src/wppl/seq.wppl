@@ -107,6 +107,25 @@ var seq_decodeSample = function(decoder, input, latentState, distributionFn, may
     }
 };
 
+// seq_decodeLL
+//
+// decoder : decoder initialized by seq_initDecoder
+// output : observed output
+// input : observed input (probably passed through encoder to construct state)
+// latentState : state to decode
+// distributionFn : decoder output, input, decoder -> Distribution
+//
+// Return likelihood of output
+var seq_decodeLL = function(decoder, output, input, latentState, distributionFn) {
+    if (decoder.samplingType === SEQ_DECODER_APPROXIMATE_BEAM) {
+        var beamOutput = _seq_beamDecode(decoder, input, maybeObserved, [latentState]);
+        var Dist = distributionFn(beamOutput, input, decoder);
+        return Dist.score(output);
+    } else if (decoder.samplingType === SEQ_DECODER_EXACT) {
+        return _seq_exactDecodeLL(decoder, output, input, distributionFn, latentState);
+    }
+};
+
 // _seq_beamDecode
 //
 // decoder : decoder initialized by seq_initDecoder
@@ -186,7 +205,9 @@ var _seq_beamDecode = function(decoder, input, maybeObserved, maybeStates, maybe
     var allTerminal = all(function(o) { o.nextOutput === decoder.terminalSymbol || o.nextOutput === undefined }, nextBeam);
 
     if (decoder.maxLength <= 1 || k === 1 || allTerminal) {
-        return map2(function(seq, score) { return { value : seq, score : score } }, nextSeqs, nextScores);
+        return map2(function(seq, score) {
+            return {value: seq, score: score}
+        }, nextSeqs, nextScores);
     } else {
         return _seq_beamDecode(decoder, input, maybeObserved, nextStates, nextSeqs, nextScores, nextHeuristicScores, k-1);
     }
@@ -213,5 +234,30 @@ var _seq_exactDecodeSample = function(decoder, input, distributionFn, maybeObser
         return nextSeq;
     } else {
         return _seq_exactDecodeSample(decoder, input, distributionFn, nextObs, nextState, nextSeq, k-1);
+    }
+};
+
+var _seq_exactDecodeLL = function(decoder, output, input, distributionFn, maybeState, maybeSeq, maybeK, maybeLL) {
+    if (output.length > 0 && output[0] === decoder.startSymbol)
+        return _seq_exactDecodeLL(decoder, output.slice(1), input, distributionFn, maybeState, maybeSeq, maybeK, maybeLL);
+
+    var state = maybeState || decoder.initialState;
+    var seq = maybeSeq || [decoder.startSymbol];
+    var k = maybeK || decoder.maxLength;
+    var stepFn = decoder.stepFn;
+    var ll = maybeLL || 0.0;
+
+    var nextStateAndOutputs = stepFn(state, seq, input);
+    var nextState = nextStateAndOutputs.state;
+    var Dist = distributionFn(nextStateAndOutputs.outputs, input, decoder);
+
+    var nextLL = ll + Dist.score(output[0]);
+    var nextSeq = seq.concat([output[0]]);
+    if (output[0] === decoder.terminalSymbol) {
+        return nextLL;
+    } else if (decoder.maxLength <= 1 || k === 1) {
+        return undefined;
+    } else {
+        return _seq_exactDecodeLL(decoder, output.slice(1), input, distributionFn, nextState, nextSeq, k-1, nextLL);
     }
 };

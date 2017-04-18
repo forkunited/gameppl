@@ -1,3 +1,12 @@
-var evaluation_modelLL = function(model, D) {
-    return sum(map(function(d) { return model(d.input).score(d.output) }, D));
+var evaluation_modelDistLL = function(modelDist, D) {
+    return sum(map(function(d) { return modelDist(d.input).score(d.output) }, D));
+};
+
+var evaluation_modelEncLL = function(model, D, distributionFn) {
+    var lls = map(function(d) { return enc_modelLL(model, d.output, d.input, distributionFn); }, D);
+    return {
+        ll : sum(map(function(ll) { ll !== -Infinity && ll !== undefined ? ll : 0.0 }, lls))/D.length,
+        neg : sum(map(function(ll) { ll === -Infinity ? 1.0 : 0.0 }, lls))/D.length,
+        undef : sum(map(function(ll) { ll === undefined ? 1.0 : 0.0 }, lls))/D.length
+    };
 };

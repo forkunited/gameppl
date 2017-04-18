@@ -1,5 +1,119 @@
-// Run with:
-// webppl test/wppl/train_model_seqS1.wppl --require webppl-nn --require . --random-seed 1 --iterations 100 --latentDim 25 --inputF Ld_in --outputF Ld_out --splitName default --splitType GAME_ROUND
+
+var _initS1DistFn = function(initParams) {
+    return function(s1output, world, params) {
+        var worldPrior = initParams.rsaWorldPrior;
+        var hiddenWorldFn = initParams.rsaHiddenWorldFn;
+        var observedWorldFn = initParams.rsaObservedWorldFn;
+        var alpha = initParams.rsaAlpha;
+        var l0seqFn = initParams.l0seqFn; // utterance x hidden x observation -> l0 input vector sequence
+        var l0encFn = params.l0encFn;
+
+        var l0distFn = function(output) {
+            return Bernoulli({ p : T.toScalars(output)[0] });
+        };
+
+        var rsaParams = {
+            cacheSize: 10000,
+            alpha: alpha,
+            parametersPrior: function (observation) { return observation },
+            utterancePrior: function (observation, parameters) { sample(util_objSoftmaxCategorical(s1output)); },
+            worldPrior: worldPrior,
+            denotationFn: function (utterance, hidden, parameters) {
+                var l0seq = l0seqFn(utterance, hidden, parameters);
+                return enc_modelDistribution(l0encFn, l0seq, l0distFn);
+            }
+        };
+
+        var S1 = makeRSA(rsaParams, RSA_S, 1);
+        var observation = observedWorldFn(world);
+        var hidden = hiddenWorldFn(world);
+        return S1(hidden, observation);
+    }
+};
+
+// s1inc_initTrainedModel
+//
+// params:
+//   maxUtteranceLength : Maximum length for decoded utterances
+//   worldDimension : Dimension of input world
+//   utteranceDimension : Size of utterance token vectors
+//   latentDimension : Size of hidden layer (must be even)
+//   beamSize : Beam size for beam search
+//   iterations : Training iterations
+//   gradientSamples : Training gradient samples
+//   batchSize : Training batch size
+// D : Data
+var s1inc_initTrainedModel = function(params, D) {
+    // Language model
+    var sParams = {
+        encoderType : ENC_NN,
+        decoderType : ENC_SEQ,
+        encoderParamFn : function() {
+            return {
+                name : "enc_S",
+                inputDimension : 0,
+                encoderType : NN_ENCODER_CONSTANT,
+                latentDimension : params.latentDimension
+            };
+        },
+        decoderParamFn : function() {
+            return {
+                name : "dec_S",
+                latentDimension : params.latentDimension,
+                outputDimension : params.utteranceDimension,
+                initStepFn : nn_initSequenceDecoderStep,
+                startSymbol : gameppl.feature.symbols.START_SYMBOL,
+                terminalSymbol : gameppl.feature.symbols.TERMINAL_SYMBOL,
+                maxLength : params.maxUtteranceLength,
+                samplingType : SEQ_DECODER_EXACT,
+                approximationBeamSize : params.beamSize
+            };
+        },
+        iterations : params.iterations,
+        gradientSamples : params.gradientSamples,
+        batchSize : params.batchSize,
+        distributionFn : util_objCategorical
+    };
+
+    var l0Params = {
+        encoderType : ENC_SEQ,
+        decoderType : ENC_NN,
+        encoderParams : {
+            name : "enc_L0",
+            latentDimension : params.latentDimension,
+            inputDimension : gameppl.feature.getFeatureMatrixVocabularySize(outputF) + gameppl.feature.getFeatureMatrixVocabularySize(inputF),
+            initStepFn : nn_initSequenceEncoderStep,
+            inputType : DATA_TYPE_VECTOR,
+            makeInitialStateFn : function() {
+                var enc_state_fn = nn_initEncoder({name : "enc_init_L0", encoderType : NN_ENCODER_CONSTANT, latentDimension : params.latentDimension });
+                return enc_state_fn();
+            }
+        }
+    };
+
+    var l0encoderType = ENC_SEQ;
+    var l0encoderParams = {
+        name : "enc_L0",
+        latentDimension : latentDim,
+        inputDimension : gameppl.feature.getFeatureMatrixVocabularySize(outputF) + gameppl.feature.getFeatureMatrixVocabularySize(inputF),
+        initStepFn : nn_initSequenceEncoderStep,
+        inputType : DATA_TYPE_VECTOR,
+        makeInitialStateFn : function() {
+            var enc_state_fn = nn_initEncoder({name : "enc_init_L0", encoderType : NN_ENCODER_CONSTANT, latentDimension : latentDim });
+            return enc_state_fn();
+        }
+    };
+
+    var l0decoderType = ENC_NN;
+    var l0decoderParams = {
+        name: "dec_L0",
+        decoderType :  NN_DECODER_SIGMOID,
+        latentDimension : latentDim,
+        outputDimension : 1
+    };
+
+    var s_model = enc_initTrainedModel(sParams, D_train);
+};
 
 var args = util_parseArgs();
 var rootDir = args["rootDir"];
@@ -192,7 +306,7 @@ var s1distFn = function(s1output, world, params) {
     // Listener gives distribution over target dimensions given observed dimensions
     // World prior is over target dimensions
 
-    //var observation = /* FIXME remove target dimension from world */;
+    // FIXME HERE var observation = /* FIXME remove target dimension from world */;
     return S1(world, observation);
 
     /*return Infer({ method : 'enumerate' }, function() {

@@ -1,0 +1,168 @@
+var RSA_L = "L";
+var RSA_S = "S";
+var RSA_All = "All";
+
+// makeRSA
+//
+// params:
+//    cacheSize : memoization cache size
+//    parametersPrior : Samples raised parameters given observation
+//    utterancePrior : Samples utterance given observation and parameters
+//    worldPrior : Samples world given observation and parameters
+//    denotationDistFn: utterance x world x parameters -> Distribution with support {false, true}
+//    alpha : Speaker rationality
+// dist : RSA_L or RSA_S
+// level : Level of returned speaker or listener
+var makeRSA = function(params, dist, level) {
+    var cacheSize = (params.cacheSize === undefined) ? 10000 : params.cacheSize;
+    var utterancePrior = params.utterancePrior;
+    var worldPrior = params.worldPrior;
+    var parametersPrior = params.parametersPrior;
+    var denotationDistFn = params.denotationDistFn;
+
+    var cachedDenotationDistFn = cache(function(utterance, world, parameters) {
+        return denotationDistFn(utterance, world, parameters);
+    }, cacheSize);
+
+    var inferParams = { method : 'enumerate' };
+
+    /* This is a hackish way to implement L0, S1, L1, S2, etc.
+     * It doesn't seem possible to do more cleanly because
+     * webppl doesn't support caching recursive or mutually
+     * recursive functions?
+     */
+
+    var _L0 = cache(function(utterance, observation, parameters) {
+        return Infer(inferParams, function() {
+            var parameters = (parameters) ? parameters : parametersPrior(observation, RSA_L, 0);
+            var world = worldPrior(observation, parameters);
+            var DenotationDist = cachedDenotationDistFn(utterance, world, parameters);
+            factor(DenotationDist.score(true));
+            return world;
+        });
+    }, cacheSize);
+
+    var _S1 = cache(function (world, observation, parameters) {
+        return Infer(inferParams, function () {
+            var utterance = utterancePrior(observation, parameters);
+            var L_up = _L0(utterance, observation, parameters);
+            factor(parameters.alpha * L_up.score(world));
+            return utterance;
+        })
+    }, cacheSize);
+
+    var _L1 = cache(function(utterance, observation, parameters) {
+        return Infer(inferParams, function() {
+            var parameters = (parameters) ? parameters : parametersPrior(observation, RSA_L, 1);
+            var world = worldPrior(observation, parameters);
+            var S_wp = _S0(world, observation, parameters);
+            factor(S_wp.score(utterance));
+            return world;
+        });
+    }, cacheSize);
+
+    var _S2 = cache(function (world, observation, parameters) {
+        return Infer(inferParams, function () {
+            var utterance = utterancePrior(observation, parameters);
+            var L_up = _L1(utterance, observation, parameters);
+            factor(parameters.alpha * L_up.score(world));
+            return utterance;
+        })
+    }, cacheSize);
+
+    var _L2 = cache(function(utterance, observation, parameters) {
+        return Infer(inferParams, function() {
+            var parameters = (parameters) ? parameters : parametersPrior(observation, RSA_L, 2);
+            var world = worldPrior(observation, parameters);
+            var S_wp = _S1(world, observation, parameters);
+            factor(S_wp.score(utterance));
+            return world;
+        });
+    }, cacheSize);
+
+    var _S3 = cache(function (world, observation, parameters) {
+        return Infer(inferParams, function () {
+            var utterance = utterancePrior(observation, parameters);
+            var L_up = _L2(utterance, observation, parameters);
+            factor(parameters.alpha * L_up.score(world));
+            return utterance;
+        })
+    }, cacheSize);
+
+    var _L3 = cache(function(utterance, observation, parameters) {
+        return Infer(inferParams, function() {
+            var parameters = (parameters) ? parameters : parametersPrior(observation, RSA_L, 3);
+            var world = worldPrior(observation, parameters);
+            var S_wp = _S2(world, observation, parameters);
+            factor(S_wp.score(utterance));
+            return world;
+        });
+    }, cacheSize);
+
+    var _dists = [
+        { L : _L0 },
+        { S : _S1, L : _L1 },
+        { S : _S2, L : _L2 },
+        { S : _S3, L : _L3 },
+    ];
+
+    var dists = mapN(
+        function(l) {
+            if (l == 0) {
+                var L = cache(function (utterance, observation) {
+                    return Infer(inferParams, function () {
+                        var parameters = parametersPrior(observation, RSA_L, l);
+                        var world = worldPrior(observation, parameters);
+                        var DenotationDist = cachedDenotationDistFn(utterance, world, parameters);
+                        factor(DenotationDist.score(true));
+                        return world;
+                    })
+                }, cacheSize);
+
+                return {"l" : l, "L" : L };
+            } else {
+                var S = cache(function(world, observation) {
+                    return Infer(inferParams, function() {
+                        var parameters = parametersPrior(observation, RSA_S, l);
+                        var utterance = utterancePrior(observation, parameters);
+                        var _L = _dists[l - 1].L;
+                        // Note: listener does not receive speaker's parameters
+                        // Top-level listener always chooses the interpretation
+                        // of the utterance (by sampling parameters)
+                        var L_up = _L(utterance, observation);
+
+                        factor(parameters.alpha*L_up.score(world));
+                        return utterance;
+                    })
+                }, cacheSize);
+
+                var L = cache(function (utterance, observation) {
+                    return Infer(inferParams, function () {
+                        var parameters = parametersPrior(observation, RSA_L, l);
+                        var world = worldPrior(observation, parameters);
+                        var _S = _dists[l].S;
+                        var S_wp = _S(world, observation, parameters);
+                        factor(S_wp.score(utterance));
+                        return world;
+                    })
+                }, cacheSize);
+
+                return {"l" : l, "L" : L, "S" : S};
+            }
+        },
+        level+1);
+
+    if (dist === RSA_L) {
+        return dists[level].L
+    } else if (dist === RSA_S) {
+        return dists[level].S;
+    } else {
+        return dists;
+    }
+}
+
+var makeRSAFactory = function(dist, level) {
+    return function(params) {
+        return makeRSA(params, dist, level);
+    }
+}

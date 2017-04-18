@@ -4,12 +4,12 @@ var distToObject = function(dist, roundPlace) {
 	if (dist.params.vs !== undefined) {
 		var obj = {};
 		for (var i = 0; i < dist.params.vs.length; i++) {
-			obj[dist.params.vs[i]] = dist.params.ps[i];
+			obj[dist.params.vs[i]] = Math.round(dist.params.ps[i] * Math.pow(10,roundPlace))/ Math.pow(10,roundPlace);
 		}
 		return obj;
     } else {
         return _.mapObject(dist.params.dist, function (val, key) {
-            return round(val.prob, roundPlace);
+            return Math.round(val.prob * Math.pow(10,roundPlace))/Math.pow(10,roundPlace);
         });
     }
 }
