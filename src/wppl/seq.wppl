@@ -27,6 +27,10 @@ var seq_initEncoder = function(params) {
     return _.extend(_.clone(params), { encoderFn : encoderFn, stepFn : stepFn, initialState : initialState });
 };
 
+var seq_getInitialState = function(encoder) {
+    return encoder.initialState;
+};
+
 // seq_applyEncoder
 //
 // encoder : encoder created by seq_initEncoder

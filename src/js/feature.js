@@ -1,4 +1,5 @@
 const _ = require('underscore');
+const Tensor = require("adnn/tensor");
 const fs = require('fs');
 const path = require('path');
 const counter = require('./counter');
@@ -485,6 +486,30 @@ var getFeatureSetDimensionsFromIndices = function(f, indices) {
     return _.map(indices, function(index) { return getFeatureSetDimensionFromIndex(f, index) });
 };
 
+var getFeatureSetFeatureRange = function(f, featureName) {
+    var fIndex = 0;
+    for (var j = 0; j < f.vector.length; j++) {
+        var feature = f.features[f.vector[j]];
+        if (feature !== featureName) {
+            fIndex += feature.size;
+        } else {
+            return [fIndex, fIndex + feature.size];
+        }
+    }
+
+    return undefined;
+};
+
+var getFeatureSetFeatureSize = function(f, featureName) {
+    return f.features[featureName].size;
+};
+
+var getTensorFeatureRange = function(tensor, f, featureName) {
+    var featureRange = getFeatureSetFeatureRange(f, featureName);
+    var tensorRange = Tensor.range(tensor, featureRange[0], featureRange[1]);
+    return tensorRange;
+};
+
 module.exports = {
     types : types,
     symbols : symbols,
@@ -512,5 +537,8 @@ module.exports = {
     getFeatureSetSize : getFeatureSetSize,
     getFeatureMatrixVocabularySize : getFeatureMatrixVocabularySize,
     getFeatureSetDimensionFromIndex : getFeatureSetDimensionFromIndex,
-    getFeatureSetDimensionsFromIndices : getFeatureSetDimensionsFromIndices
+    getFeatureSetDimensionsFromIndices : getFeatureSetDimensionsFromIndices,
+    getFeatureSetFeatureRange : getFeatureSetFeatureRange,
+    getTensorFeatureRange : getTensorFeatureRange,
+    getFeatureSetFeatureSize : getFeatureSetFeatureSize
 };

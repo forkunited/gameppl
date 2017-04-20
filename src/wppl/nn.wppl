@@ -31,6 +31,7 @@ var _nn_makeState = function(params) {
 //   encoderType : (NN_ENCODER_TANH, NN_ENCODER_CONSTANT)
 //   inputDimension : Dimension of the input
 //   latentDimension : Dimension of hidden state
+//   [constantFn] : constant encoder function if encoder type is constant (() -> initial state)
 var nn_initEncoder = function(params) {
     if (params.encoderType === NN_ENCODER_TANH) {
         return stack([
@@ -39,6 +40,10 @@ var nn_initEncoder = function(params) {
             affine('enc_layer_0_' + params.name, { in : params.inputDimension, out : params.latentDimension, param : modelParam })
         ]);
     } else if (params.encoderType == NN_ENCODER_CONSTANT) {
+        if (params.constantFn !== undefined) {
+            var constantFn = params.constantFn;
+            return constantFn;
+        }
         var initialState = _nn_makeState({ name : params.name, dimension : params.latentDimension });
         return function() { return initialState };
     }
