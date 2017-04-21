@@ -46,7 +46,7 @@ var makeRSA = function(params, dist, level) {
         return Infer(inferParams, function () {
             var utterance = utterancePrior(observation, parameters);
             var L_up = _L0(utterance, observation, parameters);
-            factor(parameters.alpha * L_up.score(world));
+            factor(params.alpha * L_up.score(world));
             return utterance;
         })
     }, cacheSize);
@@ -65,7 +65,7 @@ var makeRSA = function(params, dist, level) {
         return Infer(inferParams, function () {
             var utterance = utterancePrior(observation, parameters);
             var L_up = _L1(utterance, observation, parameters);
-            factor(parameters.alpha * L_up.score(world));
+            factor(params.alpha * L_up.score(world));
             return utterance;
         })
     }, cacheSize);
@@ -84,7 +84,7 @@ var makeRSA = function(params, dist, level) {
         return Infer(inferParams, function () {
             var utterance = utterancePrior(observation, parameters);
             var L_up = _L2(utterance, observation, parameters);
-            factor(parameters.alpha * L_up.score(world));
+            factor(params.alpha * L_up.score(world));
             return utterance;
         })
     }, cacheSize);
@@ -130,8 +130,7 @@ var makeRSA = function(params, dist, level) {
                         // Top-level listener always chooses the interpretation
                         // of the utterance (by sampling parameters)
                         var L_up = _L(utterance, observation);
-
-                        factor(parameters.alpha*L_up.score(world));
+                        factor(params.alpha*L_up.score(world));
                         return utterance;
                     })
                 }, cacheSize);

@@ -1,5 +1,5 @@
 const _ = require('underscore');
-const Tensor = require("adnn/tensor");
+const ad = require("adnn/ad");
 const fs = require('fs');
 const path = require('path');
 const counter = require('./counter');
@@ -77,8 +77,13 @@ var initFeatureActionDimensionEnumerable = function(name, inputGameDirectory, ut
         for (var a = 0; a < actions.length; a++) {
             var action = actions[a];
             for (var dim in action) {
-                if (dim.startsWith(parameters.prefix)) {
-                    counter.increment(c, dim + "_" + action[dim]);
+                if ((parameters.vocabPrefix && dim.startsWith(parameters.vocabPrefix))
+                    || (!parameters.vocabPrefix && dim.startsWith(parameters.prefix))) {
+                    if (!parameters.ignoreDims) {
+                        counter.increment(c, dim + "_" + action[dim]);
+                    } else {
+                        counter.increment(c, action[dim]);
+                    }
                 }
             }
         }
@@ -107,7 +112,9 @@ var computeFeatureActionDimensionEnumerable = function(feature, utterance, actio
 
     var v = matrix.vectorInit(vectorSize);
     for (var key in action) {
-        var f = key + "_" + action[key];
+        if (!key.startsWith(feature.parameters.prefix))
+            continue;
+        var f = (feature.parameters.ignoreDims) ? action[key] : key + "_" + action[key];
         if (bilookup.contains(feature.vocabulary, f)) {
             var index = bilookup.get(feature.vocabulary, f);
             if (feature.parameters.type == enumerableTypes.ONE_HOT)
@@ -490,10 +497,11 @@ var getFeatureSetFeatureRange = function(f, featureName) {
     var fIndex = 0;
     for (var j = 0; j < f.vector.length; j++) {
         var feature = f.features[f.vector[j]];
-        if (feature !== featureName) {
-            fIndex += feature.size;
+        if (feature.name !== featureName) {
+            fIndex += (feature.parameters.type == enumerableTypes.INDEX) ? 1 : feature.size;
         } else {
-            return [fIndex, fIndex + feature.size];
+            var size = (feature.parameters.type == enumerableTypes.INDEX) ? 1 : feature.size;
+            return [fIndex, fIndex + size];
         }
     }
 
@@ -506,7 +514,7 @@ var getFeatureSetFeatureSize = function(f, featureName) {
 
 var getTensorFeatureRange = function(tensor, f, featureName) {
     var featureRange = getFeatureSetFeatureRange(f, featureName);
-    var tensorRange = Tensor.range(tensor, featureRange[0], featureRange[1]);
+    var tensorRange = ad.tensor.range(tensor, featureRange[0], featureRange[1]);
     return tensorRange;
 };
 

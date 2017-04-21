@@ -16,7 +16,7 @@ var _initS1DistFn = function(initParams) {
             parametersPrior: function(observation) { return observation },
             utterancePrior: function(observation, parameters) { sample(util_objSoftmaxCategorical(s1output)); },
             worldPrior: worldPrior,
-            denotationFn: function(utterance, hidden, parameters) {
+            denotationDistFn: function(utterance, hidden, parameters) {
                 var l0seq = l0seqFn(utterance, hidden, parameters);
                 return enc_modelDistribution(l0model, l0seq, l0distFn);
             }
@@ -25,6 +25,7 @@ var _initS1DistFn = function(initParams) {
         var S1 = makeRSA(rsaParams, RSA_S, 1);
         var observation = observedWorldFn(world);
         var hidden = hiddenWorldFn(world);
+
         return S1(hidden, observation);
     }
 };
@@ -38,12 +39,11 @@ var _initS1StepFn = function(params) {
     var worldPrior = params.rsaWorldPrior;
     var hiddenWorldFn = params.rsaHiddenWorldFn;
     var observedWorldFn = params.rsaObservedWorldFn;
+    var languagePruneSize = params.languagePruneSize;
 
-    var hiddenSupport = worldPrior.support();
-    var idxHiddenSupport = mapIndexed(function(index, hidden) { return [index, hidden] }, hiddenSupport);
     var parametersPrior = function (observation) { return observation };
 
-    return function(state, seq, world) {
+    return function(state, seq, world, maybeFixedOutput) {
         var s_stepFn = seq_getDecoderStepFn(enc_getObject(enc_getDecoder(s_model)));
         var l0stepFn = seq_getEncoderStepFn(enc_getObject(enc_getEncoder(l0model)));
 
@@ -52,23 +52,28 @@ var _initS1StepFn = function(params) {
         var observedWorld = observedWorldFn(world);
         var hiddenWorld = hiddenWorldFn(world);
 
+        var hiddenSupport = Infer({method : 'enumerate'}, function() { worldPrior(observedWorld) }).support();
+        var idxHiddenSupport = mapIndexed(function(index, hidden) { return [index, hidden] }, hiddenSupport);
+
         var l0states = mapIndexed(function(index, l0state) {
-            var inputSeqHidden = l0seqFn(seq, hiddenSupport[index], observedWorld);
-            return l0stepFn(l0state, inputSeqHidden);
+            var inputSeqHidden = l0seqFn([seq[seq.length - 1]], hiddenSupport[index], observedWorld);
+            return l0stepFn(l0state, inputSeqHidden[0]);
         }, state.l0);
 
         var nextState = { s : s_out.state, l0 : l0states };
 
+        var sortedOutputs = sort(s_out.outputs, gt, function(output) { output.value === maybeFixedOutput ? Infinity : output.score });
+        var prunedOutputs = gameppl.util._first(sortedOutputs, languagePruneSize);
         var outputs = map(function(output) {
             var rsaParams = {
-                cacheSize: 10000,
+                cacheSize: 100,
                 alpha: alpha,
                 parametersPrior: parametersPrior,
                 worldPrior: worldPrior,
-                denotationFn: function (utteranceLast, hidden, parameters) {
+                denotationDistFn: function (utteranceLast, hidden, parameters) {
                     var hiddenIndexPair = find(function(idxHidden) { _.isEqual(idxHidden[1], hidden) }, idxHiddenSupport);
                     var hiddenIndex = hiddenIndexPair[0];
-                    var state = l0states[hiddenIndex];
+                    var l0state = l0states[hiddenIndex];
                     var l0seq = l0seqFn([utteranceLast], hidden, parameters);
                     return enc_modelDistribution(l0model, l0seq, l0distFn, l0state);
                 }
@@ -83,7 +88,7 @@ var _initS1StepFn = function(params) {
                 score : output.score,
                 heuristic : ad.lift(l0score)
             }
-        }, s_out.outputs);
+        }, prunedOutputs);
 
         return {
             state : nextState,
@@ -101,12 +106,14 @@ var _initS1StepFn = function(params) {
 //   l0inputDimension : Dimension of inputs to the l0 encoder
 //   latentDimension : Size of hidden layer (must be even)
 //   beamSize : Beam size for beam search
+//   languagePruneSize : Number of next tokens to take from language model at each beam step
 //   iterations : Training iterations
 //   gradientSamples : Training gradient samples
 //   batchSize : Training batch size,
 //   l0seqFn : utterance x hidden x observation -> l0 input vector sequence
 //   rsaAlpha : Speaker rationality
 //   rsaWorldPrior : observed world -> sample of hidden world
+//   rsaWorldPriorSize : Number of elements in world prior support for a given observation
 //   rsaHiddenWorldFn : world -> part of world hidden from listener
 //   rsaObservedWorldFn : world -> part of world observed by listener
 // D : Data
@@ -168,7 +175,7 @@ var s1inc_initTrainedModel = function(params, D) {
         return Bernoulli({ p : T.toScalars(output)[0] });
     };
 
-    var s_model = enc_initTrainedModel(sParams, D_train);
+    var s_model = enc_initTrainedModel(sParams, D);
 
     /* S1 */
 
@@ -205,10 +212,9 @@ var s1inc_initTrainedModel = function(params, D) {
                     var s_encoder = enc_getEncoder(modelParams.s_model);
                     var l0encoder = enc_getEncoder(modelParams.l0model);
                     var l0initialState = seq_getInitialState(enc_getObject(l0encoder));
-                    var hiddenSupport = worldPrior.support();
                     return {
                         s : enc_applyEncoder(s_encoder),
-                        l0 : repeat(hiddenSupport.length, function() { return l0initialState })
+                        l0 : repeat(params.rsaWorldPriorSize, function() { return l0initialState })
                     };
                 }
             };
@@ -222,7 +228,8 @@ var s1inc_initTrainedModel = function(params, D) {
                 terminalSymbol : gameppl.feature.symbols.TERMINAL_SYMBOL,
                 maxLength : params.maxUtteranceLength,
                 samplingType : SEQ_DECODER_APPROXIMATE_BEAM,
-                approximationBeamSize : params.beamSize
+                approximationBeamSize : params.beamSize,
+                languagePruneSize : params.languagePruneSize
             };
         },
         iterations : params.iterations,
@@ -231,6 +238,6 @@ var s1inc_initTrainedModel = function(params, D) {
         distributionFn : s1distFn
     };
 
-    var s1model = enc_initTrainedModel(trainingParams, D_train);
+    var s1model = enc_initTrainedModel(s1Params, D);
     return s1model;
 };

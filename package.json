@@ -5,6 +5,7 @@
   "main": "src/js/library.js",
   "webppl": {
     "wppl": [
+      "src/wppl/model/s1inc.wppl",
       "src/wppl/data.wppl",
       "src/wppl/enc.wppl",
       "src/wppl/evaluation.wppl",

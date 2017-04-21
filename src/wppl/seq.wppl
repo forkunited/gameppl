@@ -122,7 +122,7 @@ var seq_decodeSample = function(decoder, input, latentState, distributionFn, may
 // Return likelihood of output
 var seq_decodeLL = function(decoder, output, input, latentState, distributionFn) {
     if (decoder.samplingType === SEQ_DECODER_APPROXIMATE_BEAM) {
-        var beamOutput = _seq_beamDecode(decoder, input, maybeObserved, [latentState]);
+        var beamOutput = _seq_beamDecode(decoder, input, undefined, [latentState]);
         var Dist = distributionFn(beamOutput, input, decoder);
         return Dist.score(output);
     } else if (decoder.samplingType === SEQ_DECODER_EXACT) {
@@ -163,10 +163,10 @@ var _seq_beamDecode = function(decoder, input, maybeObserved, maybeStates, maybe
                     fixed : (maybeObserved !== undefined) && _.isEqual(maybeObserved, seq)
                 };
             } else {
-                var nextStateAndOutputs = stepFn(state, seq, input);
-                var nextState = nextStateAndOutputs.state;
                 var indObserved = (maybeObserved !== undefined)
-                    && (maybeObserved.length >= seq.length) && _.isEqual(gameppl.util._first(maybeObserved, seq.length), seq);
+                    && (maybeObserved.length > seq.length) && _.isEqual(gameppl.util._first(maybeObserved, seq.length), seq);
+                var nextStateAndOutputs = stepFn(state, seq, input, (indObserved) ? maybeObserved[seq.length] : undefined);
+                var nextState = nextStateAndOutputs.state;
 
                 return map(function (output) {
                     var nextOutput = output.value;
