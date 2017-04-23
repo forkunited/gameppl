@@ -508,6 +508,10 @@ var getFeatureSetFeatureRange = function(f, featureName) {
     return undefined;
 };
 
+var getFeatureSetFeature = function(f, featureName) {
+    return f.features[featureName];
+};
+
 var getFeatureSetFeatureSize = function(f, featureName) {
     return f.features[featureName].size;
 };
@@ -517,6 +521,14 @@ var getTensorFeatureRange = function(tensor, f, featureName) {
     var tensorRange = ad.tensor.range(tensor, featureRange[0], featureRange[1]);
     return tensorRange;
 };
+
+var getTensorFeatureRangeStart = function(tensor, f, featureName) {
+    return ad.value(ad.tensor.get(getTensorFeatureRange(tensor, f, featureName),0))
+};
+
+var getFeatureDimension = function(feature, index) {
+    return bilookup.getReverse(feature.vocabulary, index);
+}
 
 module.exports = {
     types : types,
@@ -542,11 +554,14 @@ module.exports = {
     getFeatureMatrixFromDatum : getFeatureMatrixFromDatum,
     getGameFromDatum : getGameFromDatum,
     getRoundFromDatum : getRoundFromDatum,
-    getFeatureSetSize : getFeatureSetSize,
     getFeatureMatrixVocabularySize : getFeatureMatrixVocabularySize,
+    getFeatureSetSize : getFeatureSetSize,
+    getFeatureSetFeature : getFeatureSetFeature,
+    getFeatureSetFeatureSize : getFeatureSetFeatureSize,
     getFeatureSetDimensionFromIndex : getFeatureSetDimensionFromIndex,
     getFeatureSetDimensionsFromIndices : getFeatureSetDimensionsFromIndices,
     getFeatureSetFeatureRange : getFeatureSetFeatureRange,
     getTensorFeatureRange : getTensorFeatureRange,
-    getFeatureSetFeatureSize : getFeatureSetFeatureSize
+    getTensorFeatureRangeStart : getTensorFeatureRangeStart,
+    getFeatureDimension : getFeatureDimension
 };

@@ -104,6 +104,10 @@ var rowTensorNonZeroIndices = function(v) {
     return indices;
 };
 
+var rowTensorToList = function(v) {
+    return v.data;
+}
+
 module.exports = {
     vectorInit: vectorInit,
     vectorSet : vectorSet,
@@ -117,5 +121,6 @@ module.exports = {
     matrixAddRowVector : matrixAddRowVector,
     matrixRowProductCat : matrixRowProductCat,
     matrixToRowTensorList : matrixToRowTensorList,
-    rowTensorNonZeroIndices : rowTensorNonZeroIndices
+    rowTensorNonZeroIndices : rowTensorNonZeroIndices,
+    rowTensorToList : rowTensorToList
 };

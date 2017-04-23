@@ -53,7 +53,8 @@ var enc_initModel = function(params) {
     var modelParams = params.modelParams;
     var encoderParams = (modelParams === undefined) ? params.encoderParams : _.extend(_.clone(modelParams), params.encoderParams);
     var decoderParams = (modelParams === undefined) ? params.decoderParams : _.extend(_.clone(modelParams), params.decoderParams);
-    return { encoder : enc_initEncoder(params.encoderType, encoderParams),
+    return { modelParams : modelParams,
+             encoder : enc_initEncoder(params.encoderType, encoderParams),
              decoder : enc_initDecoder(params.decoderType, decoderParams) };
 };
 

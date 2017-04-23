@@ -63,7 +63,8 @@ var _initS1StepFn = function(params) {
         var nextState = { s : s_out.state, l0 : l0states };
 
         var sortedOutputs = sort(s_out.outputs, gt, function(output) { output.value === maybeFixedOutput ? Infinity : output.score });
-        var prunedOutputs = gameppl.util._first(sortedOutputs, languagePruneSize);
+        var prunedOutputs = (languagePruneSize !== undefined && languagePruneSize < Infinity) ?
+            gameppl.util._first(sortedOutputs, languagePruneSize) : sortedOutputs;
         var outputs = map(function(output) {
             var rsaParams = {
                 cacheSize: 100,
@@ -199,7 +200,8 @@ var s1inc_initTrainedModel = function(params, D) {
                 rsaAlpha : params.rsaAlpha,
                 rsaWorldPrior : params.rsaWorldPrior,
                 rsaHiddenWorldFn : params.rsaHiddenWorldFn,
-                rsaObservedWorldFn : params.rsaObservedWorldFn
+                rsaObservedWorldFn : params.rsaObservedWorldFn,
+                s1distFn : s1distFn
             };
         },
         encoderParamFn : function(modelParams) {
@@ -241,3 +243,7 @@ var s1inc_initTrainedModel = function(params, D) {
     var s1model = enc_initTrainedModel(s1Params, D);
     return s1model;
 };
+
+var s1inc_getDistributionFn = function(s1model) {
+    return s1model.modelParams.s1distFn;
+}
