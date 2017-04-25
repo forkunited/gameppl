@@ -1,6 +1,17 @@
+// util.js
+//
+// Utility functions
+//
+
+// util_applyFn
+//
+// fn : Function to apply to arguments
+// args : List of arguments
+//
+// returrn fn(args)
 var util_applyFn = function(fn, args) {
     if (args.length <= 1 || args.length >=5) {
-        display("applyFn error: Requires at least 1 but no more than 4 arguments")
+        display("applyFn error: Requires at least 1 but no more than 4 arguments");
         return undefined;
     }
 
@@ -13,11 +24,18 @@ var util_applyFn = function(fn, args) {
     } else if (args.length == 4) {
         return fn(args[0], args[1], args[2], args[3]);
     }
-}
+};
 
+// util_mapTupleArgs
+//
+// fn : Function to apply to argument tuples
+// args : List of argument lists to pass as tuples to fn
+//
+// return fn applied to lists of arguments constructed from
+// lists given in args
 var util_mapTupleArgs = function(fn, args) {
     if (args.length <= 1 || args.length >=5) {
-        display("mapTupleArgs error: At least 1 but no more than 4 lists of arguments should be given")
+        display("mapTupleArgs error: At least 1 but no more than 4 lists of arguments should be given");
         return undefined;
     }
 
@@ -25,18 +43,28 @@ var util_mapTupleArgs = function(fn, args) {
         var args = mapN(function(j) { return args[j][i] }, args.length);
         return util_applyFn(fn, args);
     }, args[0].length);
-}
+};
 
+// util_mapTuple
+//
+// fn : Function to apply to argument tuples
+// [args...] : Argument lists to pass as tuples to fn
+//
+// return fn applied to lists of arguments constructed from
+// given lists
 var util_mapTuple = function(fn) {
     if (arguments.length <= 1 || arguments.length >=5) {
-        display("mapTuple error: At least 1 but no more than 4 lists of arguments should be given")
+        display("mapTuple error: At least 1 but no more than 4 lists of arguments should be given");
         return undefined;
     }
 
     var args = _.rest(arguments, 1);
     return util_mapTupleArgs(fn, args);
-}
+};
 
+// _listProduct
+//
+// Private function
 var _listProduct = function(args) {
     var listProductPair = function(l1, l2) {
         return _.flatten(map(function (item1) {
@@ -44,18 +72,31 @@ var _listProduct = function(args) {
                 return _.flatten([[item1], item2], true);
             }, l2);
         }, l1),true);
-    }
+    };
 
-    return reduce(function(l, acc) { return listProductPair(l, acc) }, [[]], args)
-}
+    return reduce(function(l, acc) { return listProductPair(l, acc) }, [[]], args);
+};
 
+// util_listProduct
+//
+// [args...] : Lists over which to compute cartesian product
+//
+// return cartesian product of list arguments
 var util_listProduct = function() {
     return _listProduct(arguments);
-}
+};
 
+// util_mapProductArgs
+//
+// fn : Function to apply to argument tuples
+// args : List of argument lists from which to construct
+//        cartesian product to pass as arguments to fn
+//
+// return fn applied to lists of arguments constructed from
+// lists given in args
 var util_mapProductArgs = function(fn, args) {
     if (args.length <= 1 || args.length >=5) {
-        display("mapProductArgs error: At least 1 but no more than 4 lists of arguments should be given")
+        display("mapProductArgs error: At least 1 but no more than 4 lists of arguments should be given");
         return undefined;
     }
 
@@ -64,11 +105,20 @@ var util_mapProductArgs = function(fn, args) {
     return map(function(tuple) {
         return util_applyFn(fn, tuple);
     }, tuples);
-}
+};
 
+// util_mapTuple
+//
+// fn : Function to apply to argument tuples
+// [args...] : Argument lists from which to construct
+//             cartesian product from which to pass
+//             tuples to fn
+//
+// return fn applied to lists of arguments constructed from
+// given lists
 var util_mapProduct = function(fn) {
     if (arguments.length <= 1 || arguments.length >=5) {
-        display("mapProduct error: At least 1 but no more than 4 lists of arguments should be given")
+        display("mapProduct error: At least 1 but no more than 4 lists of arguments should be given");
         return undefined;
     }
 
@@ -81,8 +131,17 @@ var util_mapProduct = function(fn) {
      return fn(item1, item2);
      }, arr2);
      }, arr1), false);*/
-}
+};
 
+// util_constructSupport
+//
+// dist : function that returns a sample from some distribution
+//        possibly given some paramters
+// [parameters] : Optional list of parameters to feed into dist
+//
+// returns support of distribution represented by dist.  If parameters
+// are given, then returns a list of supports for each parameter
+// and a list of corresponding parameters.
 var util_constructSupport = function(dist, parameters) {
 	if (parameters != undefined) {
         return _.unzip(_.flatten(map(function(param) {
@@ -95,8 +154,13 @@ var util_constructSupport = function(dist, parameters) {
 	} else {
         return (Infer({method: 'enumerate'}, dist)).support();
     }
-}
+};
 
+// util_parseArgs
+//
+// returns object containing command-line argument names
+// mapped to argument values under the assumption that arguments
+// are given in the form '--name value'
 var util_parseArgs = function() {
 	var args = process.argv;
 	var keyValues = mapN(function(index) {
@@ -112,18 +176,32 @@ var util_parseArgs = function() {
 	}, keyValues);
 
 	return gameppl.util.makeObject(keyValuesFiltered);
-}
+};
 
 /*
  * Random subset helper function
  */
 
+// util_randomSubset
+//
+// l : a list
+// k : number of elements in the random subset
+// ordered : indicates whether or not to return the subset in the same
+//           order as elements are given in l or in random order
+//
+// returns a random subset of l of size k
 var util_randomSubset = function(l, k, ordered) {
     var subset = ordered ? sort(util_randomIndexSubset(l.length, k)) : util_randomIndexSubset(l.length, k);
     var points = map(function(index) { return l[index] }, subset);
     return points;
-}
+};
 
+// util_randomIndexSubset
+//
+// n : Number of indices
+// k : Number of elements in the random subset
+//
+// returns a random subset of [n] of size k
 var util_randomIndexSubset = function(n, k) {
     var randomIndexSubsetHelper = function(subset, possible) {
         var nextIndex = randomInteger(possible.length);
@@ -140,22 +218,32 @@ var util_randomIndexSubset = function(n, k) {
     };
 
     return randomIndexSubsetHelper([], _.range(n));
-}
+};
 
 /*
  * Old slow version of random subset that relies on shuffling
+ * (slow and deprecated... don't use)
  */
 
+// util_randomIndexSubsetShuffle
+//
+// Deprecated
 var util_randomIndexSubsetShuffle = function(n, k) {
     var perm = util_shuffleIndex(n);
     return _.initial(perm, n-k);
-}
+};
 
+// util_shuffleIndex
+//
+// Deprecated
 var util_shuffleIndex = function(n) {
     var perm = _.range(n);
     return util_shuffleIndexHelper(n-1, perm);
-}
+};
 
+// util_shuffleIndexHelper
+//
+// Deprecated
 var util_shuffleIndexHelper = function(i, perm) {
     if (i == 0)
         return perm
@@ -168,10 +256,18 @@ var util_shuffleIndexHelper = function(i, perm) {
                     perm[index])
         }, perm))
     }
-}
+};
 
 /* String stuff */
 
+// util_strProduct
+//
+// strList1 : List of strings
+// strList2 : List of strings
+// midStr : String to put between strings from first and second lists
+// endStr : String to put at end of strings formed from first and second lists
+//
+// return a list of strings of the form [strList_1]midStr[str_List_2]endStr
 var util_strProduct = function(strList1, strList2, midStr, endStr) {
     return _.flatten(map(function(str1) {
         return map(function(str2) {
@@ -182,6 +278,14 @@ var util_strProduct = function(strList1, strList2, midStr, endStr) {
 
 /* Distribution stuff */
 
+// util_observeHelper
+//
+// Dist : Distribution
+// [val] : Optional observed value
+//
+// returns val (if given) or value sampled from distribution
+// after possibly factoring on the likelihood of val according to
+// Dist
 var util_observeHelper = function(Dist, val) {
     if (val !== undefined) {
         factor(Dist.score(val));
@@ -197,7 +301,10 @@ var util_observeHelper = function(Dist, val) {
 
 // util_objCategorical
 //
-// values : (value, score) list
+// objs : (value, score) list
+//
+// returns categorical distribution constructed from
+// scored values
 var util_objCategorical = function(objs) {
     var vs = map(function(obj) { obj.value }, objs);
     var ps = map(function(obj) { obj.score }, objs);
@@ -208,7 +315,10 @@ var util_objCategorical = function(objs) {
 
 // util_objSoftmaxCategorical
 //
-// values : (value, score) list
+// objs : (value, score) list
+//
+// returns categorical distribution constructed from
+// softmax function applied to scored values
 var util_objSoftmaxCategorical = function(objs) {
     var vs = map(function(obj) { obj.value }, objs);
     var ps = map(function(obj) { obj.score }, objs);

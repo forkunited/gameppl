@@ -1,3 +1,10 @@
+// rsa.wppl
+//
+// Construct rsa speaker and listener distributions
+//
+
+// Specifies the type of rsa distribution
+// (listener, speaker, or both)
 var RSA_L = "L";
 var RSA_S = "S";
 var RSA_All = "All";
@@ -11,8 +18,11 @@ var RSA_All = "All";
 //    worldPrior : Samples world given observation and parameters
 //    denotationDistFn: utterance x world x parameters -> Distribution with support {false, true}
 //    alpha : Speaker rationality
-// dist : RSA_L or RSA_S
+// dist : RSA_L or RSA_S or RSA_All (if all then object containing multiple
+//        distributions is returned (0 through 3)
 // level : Level of returned speaker or listener
+//
+// return rsa distribution of type determined by dist and level
 var makeRSA = function(params, dist, level) {
     var cacheSize = (params.cacheSize === undefined) ? 10000 : params.cacheSize;
     var utterancePrior = params.utterancePrior;
@@ -160,6 +170,13 @@ var makeRSA = function(params, dist, level) {
     }
 }
 
+// makeRSAFactory
+//
+// dist : rsa dist that the factory constructs (RSA_S or RSA_L)
+// level : level of rsa distribution that the factory constructs
+//
+// return factory function that takes rsa parameters and
+// constructs rsa distributions of type given by dist and level
 var makeRSAFactory = function(dist, level) {
     return function(params) {
         return makeRSA(params, dist, level);

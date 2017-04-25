@@ -1,6 +1,22 @@
-const ENC_NN = 0;
-const ENC_SEQ = 1;
+// enc.wppl
+//
+// Represents encoder/decoder models.  These models encode an
+// input to some latent representation, and then decode the
+// latent representation into an output
 
+// Encdoer/Decoder types
+const ENC_NN = 0;  // Neural net (given by functions in nn.wppl)
+const ENC_SEQ = 1;  // Sequence  (given by functions in seq.wppl)
+
+// enc_initEncoder
+//
+// type : Type of the encoder (ENC_NN, ENC_SEQ)
+// params : Initialization parameters for the encoder (determined
+//          by the type (see initialization functions in seq.wppl or
+//          nn.wppl)
+//
+// return encoder (type, obj) object cotnaining both the type and the
+// object
 var enc_initEncoder = function(type, params) {
     if (type === ENC_NN) {
         return { type : type, obj : nn_initEncoder(params) };
@@ -9,6 +25,11 @@ var enc_initEncoder = function(type, params) {
     }
 };
 
+// enc_applyEncoder
+//
+// encoder : Encoder object constructed by enc_initEncoder
+// input : Input to apply the encoder to
+// [maybeState] : Possibly state information to feed into the encoder
 var enc_applyEncoder = function(encoder, input, maybeState) {
     if (encoder.type === ENC_NN) {
         return nn_applyEncoder(encoder.obj, input, maybeState);
@@ -17,6 +38,15 @@ var enc_applyEncoder = function(encoder, input, maybeState) {
     }
 }
 
+// enc_initDecoder
+//
+// type : Type of the decoder (ENC_NN, ENC_SEQ)
+// params : Initialization parameters for the decoder (determined
+//          by the type (see initialization functions in seq.wppl or
+//          nn.wppl)
+//
+// return decoder (type, obj) object cotnaining both the type and the
+// object
 var enc_initDecoder = function(type, params) {
     if (type === ENC_NN) {
         return { type : type, obj : nn_initDecoder(params) };
@@ -25,6 +55,15 @@ var enc_initDecoder = function(type, params) {
     }
 };
 
+// enc_decodeSample
+//
+// decoder : Decoder object constructed by enc_initDecoder
+// input : Observed input (probably passed through encoder to construct latentState)
+// latentState : Encoded latent state
+// distributionFn : Function that takes decoder output and constructs a distribution
+// [maybeObservation] : Possible observed output to factor on
+//
+// return sample from distribution constructed from output of decoder applied to latent state
 var enc_decodeSample = function(decoder, input, latentState, distributionFn, maybeObservation) {
     if (decoder.type === ENC_NN) {
         return nn_decodeSample(decoder.obj, input, latentState, distributionFn, maybeObservation);
@@ -33,6 +72,14 @@ var enc_decodeSample = function(decoder, input, latentState, distributionFn, may
     }
 };
 
+// enc_decodeDistribution
+//
+// decoder : Decoder object constructed by enc_initDecoder
+// input : Observed input (probably passed through encoder to construct latentState)
+// latentState : Encoded latent state
+// distributionFn : Function that takes decoder output and constructs a distribution
+//
+// return distribution constructed from output of decoder applied to latent state
 var enc_decodeDistribution = function(decoder, input, latentState, distributionFn) {
     if (decoder.type === ENC_NN) {
         return nn_decodeDistribution(decoder.obj, input, latentState, distributionFn);
@@ -41,6 +88,16 @@ var enc_decodeDistribution = function(decoder, input, latentState, distributionF
     }
 };
 
+// enc_decodeLL
+//
+// decoder : Decoder object constructed by enc_initDecoder
+// output : Observed output over which to compute log-likelihood
+// input : Observed input (probably passed through encoder to construct latentState)
+// latentState : Encoded latent state
+// distributionFn : Function that takes decoder output and constructs a distribution
+//
+// return log-likelihood given by distribution constructed from decoder
+// applied to latent state for the given output
 var enc_decodeLL = function(decoder, output, input, latentState, distributionFn) {
     if (decoder.type === ENC_NN) {
         return nn_decodeLL(decoder.obj, output, input, latentState, distributionFn);
@@ -49,6 +106,17 @@ var enc_decodeLL = function(decoder, output, input, latentState, distributionFn)
     }
 };
 
+// enc_initModel
+//
+// params :
+//   encoderType : (ENC_NN, ENC_SEQ)
+//   decoderType : (ENC_NN, ENC_SEQ)
+//   encoderParams : Initialization parameters for encoder (determined by type... see
+//                   nn.wppl or seq.wppl)
+//   decoderParams : Initialization parameters for decoder (determined by type... see
+//                   nn.wppl or seq.wppl)
+//   [modelParams] : Optional initialization parameters to share across encoder and decoder
+// return encoder/decoder model object
 var enc_initModel = function(params) {
     var modelParams = params.modelParams;
     var encoderParams = (modelParams === undefined) ? params.encoderParams : _.extend(_.clone(modelParams), params.encoderParams);
@@ -58,18 +126,43 @@ var enc_initModel = function(params) {
              decoder : enc_initDecoder(params.decoderType, decoderParams) };
 };
 
+// enc_getEncoder
+//
+// model : Model constructed by enc_initModel
+//
+// return typed encoder object from model
 var enc_getEncoder = function(model) {
     return model.encoder;
 };
 
+// enc_getDecoder
+//
+// model : Model constructed by enc_initModel
+//
+// return typed decoder object from model
 var enc_getDecoder = function(model) {
     return model.decoder;
 };
 
+// enc_getObject
+//
+// encdec : Encoder or decoder typed object constructed
+// through enc_initModel
+//
+// return encoder/decoder object from typed object
 var enc_getObject = function(encdec) {
     return encdec.obj;
 };
 
+// enc_modelSample
+//
+// model : Model object constructed by enc_initModel
+// input : Observed input to pass through encoder
+// distributionFn : Function that takes decoder output and constructs a distribution
+// [maybeObservation] : Possible observed output to factor on
+//
+// return sample from distribution constructed from output of decoder applied to
+// latent state constructed by encoder using input
 var enc_modelSample = function(model, input, distributionFn, maybeObservation) {
     var encoder = model.encoder;
     var decoder = model.decoder;
@@ -77,6 +170,14 @@ var enc_modelSample = function(model, input, distributionFn, maybeObservation) {
     return enc_decodeSample(decoder, input, latentState, distributionFn, maybeObservation);
 };
 
+// enc_modelDistribution
+//
+// model : Model object constructed by enc_initModel
+// input : Observed input to pass through encoder
+// distributionFn : Function that takes decoder output and constructs a distribution
+// [maybeState] : Optional latent state to start encoder from
+//
+// return distribution constructed from output of decoder applied to latent state
 var enc_modelDistribution = function(model, input, distributionFn, maybeState) {
     var encoder = model.encoder;
     var decoder = model.decoder;
@@ -85,6 +186,16 @@ var enc_modelDistribution = function(model, input, distributionFn, maybeState) {
     return enc_decodeDistribution(decoder, input, latentState, distributionFn);
 };
 
+// enc_modelLL
+//
+// model : Model object constructed by enc_initModel
+// output : Observed output over which to compute log-likelihood
+// input : Observed input to encode
+// distributionFn : Function that takes decoder output and constructs a distribution
+// [maybeState] : Optional latent state to start encoder from
+//
+// return log-likelihood given by distribution constructed from decoder
+// applied to latent state for the given input/output pair
 var enc_modelLL = function(model, output, input, distributionFn, maybeState) {
     var encoder = model.encoder;
     var decoder = model.decoder;
@@ -93,6 +204,11 @@ var enc_modelLL = function(model, output, input, distributionFn, maybeState) {
     return enc_decodeLL(decoder, output, input, latentState, distributionFn);
 };
 
+// _enc_initTrainingObj
+//
+// Private function
+//
+// Returns "training objective" function
 var _enc_initTrainingObj = function(params) {
     return function(data) {
         return function() {
@@ -120,6 +236,12 @@ var _enc_initTrainingObj = function(params) {
     }
 };
 
+// _enc_trainLearningModel
+//
+// Private function
+//
+// returns model trained according to a given training objective applied to data for
+// some iterations
 var _enc_trainLearningModel = function(trainingObj, data, iterations, gradientSamples) {
     var trainingResults = Optimize(trainingObj(data),
         {

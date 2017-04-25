@@ -1,7 +1,27 @@
+// evaluation.wppl
+//
+// Code for evaluating various types of models
+//
+
+// evaluation_modelDistLL
+//
+// modelDist : model function that takes data inputs and produces distributions
+// D : (input, output) pairs over which to apply modelDist and compute log-likelihood
+//
+// return log-likelihood of data in D according to modelDist model
 var evaluation_modelDistLL = function(modelDist, D) {
     return sum(map(function(d) { return modelDist(d.input).score(d.output) }, D));
 };
 
+// evaluation_modelEncLL
+//
+// model : encoder/decoder model represented by code in enc.wppl
+// D : data set containing (input,output) datums
+// distributionFn : function that takes encoder/decoder model output
+// and produces a distribution
+//
+// return log-likelihood of data in D according to encoder/decoder model
+// with distributions constructed through distributionFn
 var evaluation_modelEncLL = function(model, D, distributionFn) {
     var lls = map(function(d) { return enc_modelLL(model, d.output, d.input, distributionFn); }, D);
     return {

@@ -1,4 +1,13 @@
+// s1inc.wppl
+//
+// Represents an incremental RSA S1 sequence learning model
 
+// _initS1DistFn
+//
+// Private function for constructing function that takes
+// s1 encoder/decoder beam search output and constructs an
+// rsa S1 distribution using the output for the utterance
+// prior
 var _initS1DistFn = function(initParams) {
     var worldPrior = initParams.rsaWorldPrior;
     var hiddenWorldFn = initParams.rsaHiddenWorldFn;
@@ -30,6 +39,15 @@ var _initS1DistFn = function(initParams) {
     }
 };
 
+// _initS1StepFn
+//
+// Private function for constructing function that takes
+// takes steps in the s1 decoder beam search.  Each step
+// takes a state and previous sequence, and outputs
+// a next state and scores for next possible tokens in the
+// sequence.  Scores are computed by a language model (s_model),
+// and heuristics are computed using the RSA L0 model applied
+// to partial utterances
 var _initS1StepFn = function(params) {
     var s_model = params.s_model;
     var l0model = params.l0model;
@@ -118,6 +136,8 @@ var _initS1StepFn = function(params) {
 //   rsaHiddenWorldFn : world -> part of world hidden from listener
 //   rsaObservedWorldFn : world -> part of world observed by listener
 // D : Data
+//
+// return trained s1 incremental model
 var s1inc_initTrainedModel = function(params, D) {
     // Language model
     var sParams = {
@@ -244,6 +264,13 @@ var s1inc_initTrainedModel = function(params, D) {
     return s1model;
 };
 
+// s1inc_getDistributionFn
+//
+// s1model : s1 model object constructed by s1inc_initTrainedModel
+//           function above
+//
+// return s1 distribution function that takes s1 beam search output
+// and returns an S1 rsa distribution
 var s1inc_getDistributionFn = function(s1model) {
     return s1model.modelParams.s1distFn;
 }

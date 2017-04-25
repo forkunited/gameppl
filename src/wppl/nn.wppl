@@ -1,12 +1,33 @@
+// nn.wppl
+//
+// Neural net encoders and decoders for use in encoder/decoder
+// models (see enc.wppl).  The nn encoders use webppl-nn
+// to construct latent states from inputs, and the nn decoders
+// decode the latent states into outputs.  There are also
+// neural net 'step functions' (e.g. lstm) for use in the sequence
+// encoders and decoders from seq.wppl.
+//
+
+
+// Specifies whether deocder has a sigmoid, linear, or
+// softmax output later
 var NN_DECODER_SIGMOID = 0;
 var NN_DECODER_LINEAR = 1;
 var NN_DECODER_SOFTMAX = 2;
 
+// Specifies whether encoder uses a tanh activation layer,
+// or ignores the input and acts as a constant function
 var NN_ENCODER_TANH = 0;
 var NN_ENCODER_CONSTANT = 1;
 
+// Specifies that a sequence step uses an lstm layer
 var NN_SEQUENCE_STEP_LSTM = 0;
 
+// _nn_makeModelParam
+//
+// Private function for constructing neural network model params
+//
+// Return model parameter
 var _nn_makeModelParam = function(name, maybeDims) {
     guide(function () {
         globalStore['nnParams_' + name] = param({ name : 'nnParams_' + name, dims : maybeDims });
@@ -16,9 +37,13 @@ var _nn_makeModelParam = function(name, maybeDims) {
 
 // _nn_makeState
 //
+// Private function to construct initial latent state
+//
 // params:
 //   name : Reference name
 //   dimension : Dimension of state
+//
+// return state
 var _nn_makeState = function(params) {
     return _nn_makeModelParam("state_" + params.name,  [params.dimension, 1]);
 };
@@ -32,6 +57,8 @@ var _nn_makeState = function(params) {
 //   inputDimension : Dimension of the input
 //   latentDimension : Dimension of hidden state
 //   [constantFn] : constant encoder function if encoder type is constant (() -> initial state)
+//
+// return neural net encoder
 var nn_initEncoder = function(params) {
     if (params.encoderType === NN_ENCODER_TANH) {
         return stack([
@@ -53,6 +80,8 @@ var nn_initEncoder = function(params) {
 //
 // encoder : encoder initialized by nn_initEncoder
 // input : Input to the encoder
+//
+// return latent state constructed from encoder applied to input
 var nn_applyEncoder = function(encoder, input, maybeState) {
     return encoder(input);
 }
@@ -64,6 +93,8 @@ var nn_applyEncoder = function(encoder, input, maybeState) {
 //   decoderType : Activation function at output later (NN_DECODER_SIGMOID, NN_DECODER_LINEAR, NN_DECODER_SOFTMAX)
 //   latentDimension : Dimension of latent input
 //   outputDimension : Dimension of output later
+//
+// return neural net decoder object
 var nn_initDecoder = function(params) {
     if (params.decoderType == NN_DECODER_SIGMOID) {
         return stack([
@@ -87,6 +118,8 @@ var nn_initDecoder = function(params) {
 // decoder : decoder initialized by nn_initDecoder
 // input : observed input (probably passed through encoder to construct state)
 // latentState : state output by an encoder
+//
+// return output resulting from applying decoder to latent state
 var nn_applyDecoder = function(decoder, input, latentState) {
     return decoder(latentState);
 };
@@ -98,7 +131,7 @@ var nn_applyDecoder = function(decoder, input, latentState) {
 // latentState : State to decode
 // distributionFn : decoder output, input, decoder -> Distribution
 //
-// Return distribution object constructed from decoder
+// return distribution object constructed from decoder
 var nn_decodeDistribution = function(decoder, input, latentState, distributionFn) {
     return distributionFn(nn_applyDecoder(decoder, input, latentState), input, decoder);
 };
@@ -111,7 +144,7 @@ var nn_decodeDistribution = function(decoder, input, latentState, distributionFn
 // latentState : State to decode
 // distributionFn : decoder output, input, decoder -> Distribution
 //
-// Return log likelihood score of given output
+// return log likelihood score of given output
 var nn_decodeLL = function(decoder, output, input, latentState, distributionFn) {
     var Dist = distributionFn(nn_applyDecoder(decoder, input, latentState), input, decoder);
     return Dist.score(output);
@@ -125,7 +158,7 @@ var nn_decodeLL = function(decoder, output, input, latentState, distributionFn) 
 // distributionFn : decoder output, input, decoder -> Distribution
 // [maybeObservation] : Observation to factor on
 //
-// Return sample from distribution given maybeObservation
+// return sample from distribution given maybeObservation
 var nn_decodeSample = function(decoder, input, latentState, distributionFn, maybeObservation) {
     var Dist = nn_decodeDistribution(decoder, latentState, distributionFn);
     return util_observeHelper(Dist, maybeObservation);
@@ -133,11 +166,16 @@ var nn_decodeSample = function(decoder, input, latentState, distributionFn, mayb
 
 // nn_initSequenceEncoderStep
 //
+// constructs a sequence encoder step function for use in sequence models (seq.wppl)
+//
 // params:
 //   name : Reference name
 //   inputType : DATA_TYPE_VECTOR or DATA_TYPE_SCALAR (defaults to DATA_TYPE_SCALAR)
 //   latentDimension : Dimension of hidden state (must be even)
 //   inputDimension : Dimension of the input
+//
+// return a sequence encoder step function that takes a state and an input, and outputs a next
+// state.
 var nn_initSequenceEncoderStep = function(params) {
     assert.ok(params.latentDimension % 2 === 0, 'Dimension for sequence model expected to be even');
     var stepType = params.maybeStepType || NN_SEQUENCE_STEP_LSTM; // Unused for now
@@ -152,10 +190,16 @@ var nn_initSequenceEncoderStep = function(params) {
 
 // nn_initSequenceDecoderStep
 //
+// constructs a sequence decoder step function for use in sequence models (seq.wppl)
+//
 // params:
 //   name : Reference name
 //   latentDimension : Dimension of hidden state (must be even)
 //   outputDimension : Dimension of output
+//
+// return a sequence decoder step function that takes a state and a sequence of previous
+// inputs, and outputs an object (state, outputs) where state is a latent state, and outputs
+// is a (value, score) list of scored next values for the decoded sequence
 var nn_initSequenceDecoderStep = function(params) {
     assert.ok(params.latentDimension % 2 === 0, 'Dimension for sequence model expected to be even');
     var stepType = params.maybeStepType || NN_SEQUENCE_STEP_LSTM; // Unused for now
