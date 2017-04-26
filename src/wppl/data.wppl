@@ -93,10 +93,10 @@ var data_makeFromFeatureMatrices = function(inputF, outputF, params) {
         if (dataType == DATA_TYPE_VECTOR) {
             return vectorSequence[0];
         } else if (dataType == DATA_TYPE_SCALAR) {
-        	return vectorSequence[0].data[0];
+        	return ad.value(T.toScalars(vectorSequence[0])[0]);
         } else if (dataType == DATA_TYPE_SCALAR_SEQUENCE) {
         	return (params.maxSequenceLength === undefined || vectorSequence.length <= params.maxSequenceLength) ?
-				map(function(v) { v.data[0] }, vectorSequence) : undefined;
+				map(function(v) { ad.value(T.toScalars(v)[0]) }, vectorSequence) : undefined;
         } else if (dataType == DATA_TYPE_VECTOR_SEQUENCE) {
             return (params.maxSequenceLength === undefined || vectorSequence.length <= params.maxSequenceLength) ?
 				vectorSequence : undefined;
@@ -109,9 +109,9 @@ var data_makeFromFeatureMatrices = function(inputF, outputF, params) {
 		var inputMat = gameppl.feature.getFeatureMatrixFromDatum(inputf);
 		var outputMat = gameppl.feature.getFeatureMatrixFromDatum(outputf);
 
-		var inputTensors = gameppl.matrix.matrixToRowTensorList(inputMat);
-
-        // FIXME Hack for now since tensors in js are different from tensors in wppl?
+        // FIXME Hack for now since tensors in js may be different from tensors in wppl?
+        var inputTensorsTemp = gameppl.matrix.matrixToRowTensorList(inputMat);
+        var inputTensors = map(function(t) { Vector(t.toFlatArray()) }, inputTensorsTemp);
 		var outputTensorsTemp = gameppl.matrix.matrixToRowTensorList(outputMat);
 		var outputTensors = map(function(t) { Vector(t.toFlatArray()) }, outputTensorsTemp);
 

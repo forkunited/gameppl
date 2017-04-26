@@ -84,11 +84,14 @@ var matrixRowProductCat = function(M1, M2) {
 var matrixToRowTensorList = function(M) {
     var L = [];
     for (var i = 0; i < M.m; i++) {
-        var t = new Tensor([M.n, 1])
+        var t = new Tensor([M.n, 1]);
+        var tArray = [];
+        for (var i = 0; i < M.n; i++)
+            tArray.push(0.0);
         for (var key in M.mat[i].vec) {
-            t.data[parseInt(key)] = M.mat[i].vec[key]; // FIXME Badness
+            tArray[parseInt(key)] = M.mat[i].vec[key];
         }
-
+        t.fromFlatArray(tArray);
         L.push(t);
     }
     return L;
@@ -96,8 +99,10 @@ var matrixToRowTensorList = function(M) {
 
 var rowTensorNonZeroIndices = function(v) {
     var indices = [];
-    for (var i = 0; i < v.data.length; i++) { // FIXME Badness
-        if (v.data[i] !== 0.0) {
+    var vArray = v.toFlatArray();
+
+    for (var i = 0; i < vArray.length; i++) { // FIXME Badness
+        if (vArray[i] !== 0.0) {
             indices.push(i);
         }
     }
@@ -105,8 +110,8 @@ var rowTensorNonZeroIndices = function(v) {
 };
 
 var rowTensorToList = function(v) {
-    return v.data;
-}
+    return v.toFlatArray();
+};
 
 module.exports = {
     vectorInit: vectorInit,
