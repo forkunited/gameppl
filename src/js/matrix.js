@@ -86,7 +86,7 @@ var matrixToRowTensorList = function(M) {
     for (var i = 0; i < M.m; i++) {
         var t = new Tensor([M.n, 1]);
         var tArray = [];
-        for (var i = 0; i < M.n; i++)
+        for (var j = 0; j < M.n; j++)
             tArray.push(0.0);
         for (var key in M.mat[i].vec) {
             tArray[parseInt(key)] = M.mat[i].vec[key];
