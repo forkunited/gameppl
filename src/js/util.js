@@ -1,4 +1,5 @@
-var _ = require("underscore");
+const fs = require('fs');
+const _ = require("underscore");
 const Tensor = require("adnn/tensor");
 
 var _mapProduct = function(fn, arr1, arr2) {
@@ -98,7 +99,12 @@ var argmax = function(vector) {
 // drops the second argument
 var _first = function(l, n) {
 	return _.first(l, n);
-}
+};
+
+var readListFile = function(filePath) {
+    var str = fs.readFileSync(filePath, 'utf8');
+	return str.trim().split("\n");
+};
 
 module.exports = {
 	areDisjoint : areDisjoint,
@@ -109,6 +115,6 @@ module.exports = {
 	objectListToTSVString : objectListToTSVString,
 	makeObject : makeObject,
 	argmax : argmax,
-	_first : _first
+	_first : _first,
+	readListFile : readListFile
 }
-

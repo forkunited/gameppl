@@ -2,6 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const _ = require('underscore');
 
+const partition = require("./partition");
+
 
 var FIELD_GAME_ID = "gameid";
 var FIELD_GAME_ROUNDS = "records";
@@ -177,11 +179,23 @@ var readOneGame = function(directoryPath, fn) {
     return readGame(path.join(directoryPath,  fileNames[0]), fn);
 };
 
-var readGames = function(directoryPath, fn) {
+var readGames = function(directoryPath, fn, maybeGamePartition, maybePartName) {
     var fileNames = fs.readdirSync(directoryPath);
-    return _.map(fileNames, function (fileName) {
-        return readGame(path.join(directoryPath,  fileName), fn);
-    });
+    if (maybeGamePartition !== undefined) {
+        var games = _.map(fileNames, function (fileName) {
+            var game = readGame(path.join(directoryPath, fileName), fn);
+            if (partition.partContains(maybeGamePartition, maybePartName, getGameId(game)))
+                return game;
+            else
+                return undefined;
+        });
+
+        return _.filter(games, function(game) { game !== undefined });
+    } else {
+        return _.map(fileNames, function (fileName) {
+            return readGame(path.join(directoryPath, fileName), fn);
+        });
+    }
 };
 
 var readGame = function(filePath, fn) {

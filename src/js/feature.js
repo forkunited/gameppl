@@ -30,7 +30,7 @@ var enumerableTypes = {
     ONE_HOT : "oneHot"
 };
 
-var initFeatureActionDimensionScalar = function(name, inputGameDirectory, utteranceFn, actionFn, parameters) {
+var initFeatureActionDimensionScalar = function(name, inputGameDirectory, utteranceFn, actionFn, parameters, maybeGamePartition) {
     var game = rgame.readOneGame(inputGameDirectory);
     var actions = actionFn(game);
     var c = counter.init();
@@ -70,7 +70,7 @@ var computeFeatureActionDimensionScalar = function(feature, utterance, action) {
     return matrix.matrixAddRowVector(M, v);
 };
 
-var initFeatureActionDimensionEnumerable = function(name, inputGameDirectory, utteranceFn, actionFn, parameters) {
+var initFeatureActionDimensionEnumerable = function(name, inputGameDirectory, utteranceFn, actionFn, parameters, maybeGamePartition) {
     var c = counter.init();
     var processGame = function(game) {
         var actions = actionFn(game);
@@ -89,7 +89,7 @@ var initFeatureActionDimensionEnumerable = function(name, inputGameDirectory, ut
         }
     };
 
-    rgame.readGames(inputGameDirectory, processGame);
+    rgame.readGames(inputGameDirectory, processGame, maybeGamePartition, parameters.partName);
 
     counter.removeLessThan(c, parameters.minCount);
 
@@ -128,7 +128,7 @@ var computeFeatureActionDimensionEnumerable = function(feature, utterance, actio
     return matrix.matrixAddRowVector(M, v);
 };
 
-var initFeatureUtteranceTokenAnnotationScalar = function(name, inputGameDirectory, utteranceFn, actionFn, parameters) {
+var initFeatureUtteranceTokenAnnotationScalar = function(name, inputGameDirectory, utteranceFn, actionFn, parameters, maybeGamePartition) {
     var game = rgame.readOneGame(inputGameDirectory);
     var utterances = utteranceFn(game);
     var c = counter.init();
@@ -189,7 +189,7 @@ var computeFeatureUtteranceTokenAnnotationScalar = function(feature, utterance, 
     return M;
 };
 
-var initFeatureUtteranceTokenAnnotationEnumerable = function(name, inputGameDirectory, utteranceFn, actionFn, parameters) {
+var initFeatureUtteranceTokenAnnotationEnumerable = function(name, inputGameDirectory, utteranceFn, actionFn, parameters, maybeGamePartition) {
     var c = counter.init();
     var processGame = function(game) {
         var utterances = utteranceFn(game);
@@ -206,7 +206,7 @@ var initFeatureUtteranceTokenAnnotationEnumerable = function(name, inputGameDire
         }
     }
 
-    rgame.readGames(inputGameDirectory, processGame);
+    rgame.readGames(inputGameDirectory, processGame, maybeGamePartition, parameters.partName);
 
     counter.removeLessThan(c, parameters.minCount);
 
@@ -269,7 +269,7 @@ var computeFeatureUtteranceTokenAnnotationEnumerable = function(feature, utteran
     return M;
 };
 
-var initFeatureUtteranceTokenAnnotationW2V = function(name, inputGameDirectory, utteranceFn, actionFn, parameters) {
+var initFeatureUtteranceTokenAnnotationW2V = function(name, inputGameDirectory, utteranceFn, actionFn, parameters, maybeGamePartition) {
     var model = w2v.getModel(parameters.modelFile);
 
     return {
@@ -319,7 +319,7 @@ var computeFeatureUtteranceTokenAnnotationW2V = function(feature, utterance, act
     return M;
 };
 
-var initFeatureSet = function(name, inputGameDirectory, utteranceFn, actionFn, featureTypes, vector) {
+var initFeatureSet = function(name, inputGameDirectory, utteranceFn, actionFn, featureTypes, vector, maybeGamePartition) {
     var features = {};
     var size = 0;
     for (var i = 0; i < featureTypes.length; i++) {
@@ -327,19 +327,19 @@ var initFeatureSet = function(name, inputGameDirectory, utteranceFn, actionFn, f
         var fparameters = featureTypes[i].parameters;
         var ftype = featureTypes[i].type;
         if (ftype == types.ACTION_DIMENSION_SCALAR) {
-            var feature = initFeatureActionDimensionScalar(fname, inputGameDirectory, utteranceFn, actionFn, fparameters);
+            var feature = initFeatureActionDimensionScalar(fname, inputGameDirectory, utteranceFn, actionFn, fparameters, maybeGamePartition);
             features[fname] = feature;
         } else if (ftype == types.ACTION_DIMENSION_ENUMERABLE) {
-            var feature = initFeatureActionDimensionEnumerable(fname, inputGameDirectory, utteranceFn, actionFn, fparameters);
+            var feature = initFeatureActionDimensionEnumerable(fname, inputGameDirectory, utteranceFn, actionFn, fparameters, maybeGamePartition);
             features[fname] = feature;
         } else if (ftype == types.UTTERANCE_TOKEN_ANNOTATION_SCALAR) {
-            var feature = initFeatureUtteranceTokenAnnotationScalar(fname, inputGameDirectory, utteranceFn, actionFn, fparameters);
+            var feature = initFeatureUtteranceTokenAnnotationScalar(fname, inputGameDirectory, utteranceFn, actionFn, fparameters, maybeGamePartition);
             features[fname] = feature;
         } else if (ftype == types.UTTERANCE_TOKEN_ANNOTATION_ENUMERABLE) {
-            var feature = initFeatureUtteranceTokenAnnotationEnumerable(fname, inputGameDirectory, utteranceFn, actionFn, fparameters);
+            var feature = initFeatureUtteranceTokenAnnotationEnumerable(fname, inputGameDirectory, utteranceFn, actionFn, fparameters, maybeGamePartition);
             features[fname] = feature;
         } else if (ftype == types.UTTERANCE_TOKEN_ANNOTATION_W2V) {
-            var feature = initFeatureUtteranceTokenAnnotationW2V(fname, inputGameDirectory, utteranceFn, actionFn, fparameters);
+            var feature = initFeatureUtteranceTokenAnnotationW2V(fname, inputGameDirectory, utteranceFn, actionFn, fparameters, maybeGamePartition);
             features[fname] = feature;
         }
 

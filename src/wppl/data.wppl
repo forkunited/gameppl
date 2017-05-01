@@ -103,7 +103,7 @@ var data_makeFromFeatureMatrices = function(inputF, outputF, params) {
         }
     }
 
-	var outputD = gameppl.feature.getFeatureMatrixData(outputF);
+    var outputD = gameppl.feature.getFeatureMatrixData(outputF);
 	var D = _.values(mapObject(function(id, inputf) {
 		var outputf = outputD[id];
 		var inputMat = gameppl.feature.getFeatureMatrixFromDatum(inputf);
