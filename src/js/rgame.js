@@ -181,27 +181,21 @@ var readOneGame = function(directoryPath, fn) {
 
 var readGames = function(directoryPath, fn, maybeGamePartition, maybePartName) {
     var fileNames = fs.readdirSync(directoryPath);
-    if (maybeGamePartition !== undefined) {
-        var games = _.map(fileNames, function (fileName) {
-            var game = readGame(path.join(directoryPath, fileName), fn);
-            if (partition.partContains(maybeGamePartition, maybePartName, getGameId(game)))
-                return game;
-            else
-                return undefined;
-        });
-
-        return _.filter(games, function(game) { game !== undefined });
-    } else {
-        return _.map(fileNames, function (fileName) {
-            return readGame(path.join(directoryPath, fileName), fn);
-        });
-    }
+    return _.map(fileNames, function (fileName) {
+        return readGame(path.join(directoryPath, fileName), fn, maybeGamePartition, maybePartName);
+    });
 };
 
-var readGame = function(filePath, fn) {
+var readGame = function(filePath, maybeFn, maybeGamePartition, maybePartName) {
     var gameStr = fs.readFileSync(filePath, 'utf8');
-    if (fn) {
-        return fn(JSON.parse(gameStr));
+    if (maybeFn) {
+        var game = JSON.parse(gameStr);
+
+        if (maybeGamePartition === undefined || partition.partContains(maybeGamePartition, maybePartName, getGameId(game))) {
+            return maybeFn(game);
+        } else {
+            return undefined;
+        }
     } else {
         return JSON.parse(gameStr);
     }
