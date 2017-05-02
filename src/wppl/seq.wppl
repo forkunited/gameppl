@@ -156,6 +156,21 @@ var seq_decodeLL = function(decoder, output, input, latentState, distributionFn)
     }
 };
 
+// seq_decodeExpectedIncrement
+//
+// decoder : decoder initialized by seq_initDecoder
+// input : observed input (probably passed through encoder to construct state)
+// latentState : state to decode
+// distributionFn : decoder output, input, decoder -> Distribution
+// scoreFn : subsequence -> R
+// numSequenceSamples : Number of sequences to sample
+//
+// return sequence of E[S_i-E[S_{i+1}] for scores S_i of the ith subsequence
+var seq_decodeExpectedIncrement = function(decoder, input, latentState, distributionFn, scoreFn, numSequenceSamples) {
+    var scoreSeqs = repeat(numSequenceSamples, function() { _seq_decodeExpectedIncrement(decoder, input, distributionFn, scoreFn) });
+    return gameppl.util.listExpectation(scoreSeqs);
+};
+
 // _seq_beamDecode
 //
 // Private function
@@ -299,5 +314,33 @@ var _seq_exactDecodeLL = function(decoder, output, input, distributionFn, maybeS
         return undefined;
     } else {
         return _seq_exactDecodeLL(decoder, output.slice(1), input, distributionFn, nextState, nextSeq, k-1, nextLL);
+    }
+};
+
+// _seq_decodeExpectedIncrement
+//
+// Private function used by seq_decodeExpectedIncrement
+var _seq_decodeExpectedIncrement = function(decoder, input, distributionFn, scoreFn, maybeState, maybeSeq, maybeK, maybeScores) {
+    var state = maybeState || decoder.initialState;
+    var seq = maybeSeq || [decoder.startSymbol];
+    var remainingObs = maybeObserved;
+    var k = maybeK || decoder.maxLength;
+    var scores = maybeScores || [];
+    var stepFn = decoder.stepFn;
+
+    var nextStateAndOutputs = stepFn(state, seq, input);
+    var nextState = nextStateAndOutputs.state;
+
+    var Dist = distributionFn(nextStateAndOutputs.outputs, input, decoder);
+
+    var E_score_next = expectation(Dist, function(next) { var nextSeq = seq.concat([next]); return scoreFn(nextSeq); });
+
+    var nextSym = sample(Dist);
+    var nextSeq = seq.concat([ nextSym ]);
+    var nextScores = scores.concat([ E_score_next - scoreFn(seq) ]);
+    if (decoder.maxLength <= 1 || k === 1 || nextSym === decoder.terminalSymbol ) {
+        return nextScores;
+    } else {
+        return _seq_exactDecodeSample(decoder, input, distributionFn, scoreFn, nextState, nextSeq, k-1, nextScores);
     }
 };

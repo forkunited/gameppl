@@ -106,6 +106,30 @@ var readListFile = function(filePath) {
 	return str.trim().split("\n");
 };
 
+// Computes an "average list" from a list of lists
+var listExpectation = function(lists) {
+	var maxLength = _.max(lists, function(list) { return list.length });
+	var exp = [];
+	var norms = [];
+	for (var i = 0; i < maxLength; i++) {
+        exp.push(0.0);
+    	norms.push(0.0);
+	}
+
+	for (var i = 0; i < lists.length; i++) {
+		for (var j = 0; j < lists[i].length; j++) {
+			exp[i] += lists[i][j];
+			norms[i] += 1.0;
+		}
+	}
+
+	for (var i = 0; i < maxLength; i++) {
+		exp[i] = exp[i] / norms[i];
+	}
+
+	return exp;
+}
+
 module.exports = {
 	areDisjoint : areDisjoint,
 	getDimension : getDimension,
@@ -116,5 +140,6 @@ module.exports = {
 	makeObject : makeObject,
 	argmax : argmax,
 	_first : _first,
-	readListFile : readListFile
+	readListFile : readListFile,
+	listExpectation : listExpectation
 }
