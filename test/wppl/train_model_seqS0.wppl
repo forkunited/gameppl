@@ -21,7 +21,7 @@ var inputF = gameppl.feature.loadFeatureMatrix(rootDir + "/examples/features/mat
 var outputF = gameppl.feature.loadFeatureMatrix(rootDir + "/examples/features/mat/" + outputFName);
 
 var D = data_makeFromFeatureMatrices(inputF, outputF, { inputType : DATA_TYPE_VECTOR, outputType : DATA_TYPE_SCALAR_SEQUENCE, maxSequenceLength : maxUtteranceLength });
-var partition = gameppl.partition.load(rootDir + "/examples/games/splits/1/" + splitName);
+var partition = gameppl.partition.load(rootDir + "/examples/games/splits/" + splitName);
 var splitFn = (splitType === "GAME") ? gameppl.data.getDatumGame : (splitType === "ROUND") ? gameppl.data.getDatumRound : gameppl.data.getDatumGameRound
 
 var D_split = gameppl.partition.split(partition, D, splitFn);
