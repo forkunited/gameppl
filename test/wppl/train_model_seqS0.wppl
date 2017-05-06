@@ -84,7 +84,7 @@ map(function(datum) {
     }, gameppl.dist.distToArray(s0Dist, 3));
 
     display("\n");
-}, gameppl.util._first(D_dev, 10));
+}, gameppl.util._first(D_dev, 30));
 
 var trainEval = evaluation_modelEncLL(s0model, D_train, util_objSoftmaxCategorical);
 var devEval = evaluation_modelEncLL(s0model, D_dev, util_objSoftmaxCategorical);
