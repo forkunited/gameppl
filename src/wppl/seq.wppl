@@ -163,12 +163,19 @@ var seq_decodeLL = function(decoder, output, input, latentState, distributionFn)
 // latentState : state to decode
 // distributionFn : decoder output, input, decoder -> Distribution
 // scoreFn : subsequence -> R
-// numSequenceSamples : Number of sequences to sample
+// [maybeObserved] : Maybe observed sequence
+// [maybeNumSequenceSamples] : Number of sequences to sample if no observation given
 //
 // return sequence of E[S_i-E[S_{i+1}] for scores S_i of the ith subsequence
-var seq_decodeExpectedIncrement = function(decoder, input, latentState, distributionFn, scoreFn, numSequenceSamples) {
-    var scoreSeqs = repeat(numSequenceSamples, function() { _seq_decodeExpectedIncrement(decoder, input, distributionFn, scoreFn) });
-    return gameppl.util.listExpectation(scoreSeqs);
+var seq_decodeExpectedIncrement = function(decoder, input, latentState, distributionFn, scoreFn, maybeObserved, maybeNumSequenceSamples) {
+    if (maybeObserved === undefined) {
+        var scoreSeqs = repeat(numSequenceSamples, function () {
+            _seq_decodeExpectedIncrement(decoder, input, distributionFn, scoreFn)
+        });
+        return gameppl.util.listExpectation(scoreSeqs);
+    } else {
+        return _seq_decodeExpectedIncrement(decoder, input, distributionFn, scoreFn, maybeObserved);
+    }
 };
 
 // _seq_beamDecode
@@ -320,7 +327,10 @@ var _seq_exactDecodeLL = function(decoder, output, input, distributionFn, maybeS
 // _seq_decodeExpectedIncrement
 //
 // Private function used by seq_decodeExpectedIncrement
-var _seq_decodeExpectedIncrement = function(decoder, input, distributionFn, scoreFn, maybeState, maybeSeq, maybeK, maybeScores) {
+var _seq_decodeExpectedIncrement = function(decoder, input, distributionFn, scoreFn, maybeObserved, maybeState, maybeSeq, maybeK, maybeScores) {
+    if (maybeObserved && maybeObserved.length > 0 && maybeObserved[0] === decoder.startSymbol)
+        return _seq_decodeExpectedIncrement(decoder, input, distributionFn, scoreFn, maybeObserved.slice(1), maybeState, maybeSeq, maybeK, maybeScores);
+
     var state = maybeState || decoder.initialState;
     var seq = maybeSeq || [decoder.startSymbol];
     var remainingObs = maybeObserved;
@@ -335,12 +345,13 @@ var _seq_decodeExpectedIncrement = function(decoder, input, distributionFn, scor
 
     var E_score_next = expectation(Dist, function(next) { var nextSeq = seq.concat([next]); return scoreFn(nextSeq); });
 
-    var nextSym = sample(Dist);
+    var nextObs = remainingObs ? remainingObs.slice(1) : undefined;
+    var nextSym = remainingObs ? remainingObs[0] : sample(Dist);
     var nextSeq = seq.concat([ nextSym ]);
     var nextScores = scores.concat([ E_score_next - scoreFn(seq) ]);
     if (decoder.maxLength <= 1 || k === 1 || nextSym === decoder.terminalSymbol ) {
         return nextScores;
     } else {
-        return _seq_exactDecodeSample(decoder, input, distributionFn, scoreFn, nextState, nextSeq, k-1, nextScores);
+        return _seq_exactDecodeSample(decoder, input, distributionFn, scoreFn, nextObs, nextState, nextSeq, k-1, nextScores);
     }
 };

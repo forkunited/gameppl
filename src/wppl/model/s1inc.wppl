@@ -273,4 +273,44 @@ var s1inc_initTrainedModel = function(params, D) {
 // and returns an S1 rsa distribution
 var s1inc_getDistributionFn = function(s1model) {
     return s1model.modelParams.s1distFn;
-}
+};
+
+// s1inc_getSModel
+//
+// s1model : s1 model object constructed by s1inc_initTrainedModel
+//           function above
+//
+// return language model used in s1
+var s1inc_getSModel = function(s1model) {
+    return s1model.modelParams.s_model;
+};
+
+// s1inc_getL0Model
+//
+// s1model : s1 model object constructed by s1inc_initTrainedModel
+//           function above
+//
+// return l0 model
+var s1inc_getL0Model = function(s1model) {
+    return s1model.modelParams.l0model;
+};
+
+// s1inc_getMeaningFn
+//
+// s1model : s1 model object constructed by s1inc_initTrainedModel
+//           function above
+//
+// return literal meaning function : utterance x world -> [0, 1]
+var s1inc_getMeaningFn = function(s1model) {
+    var l0model = s1model.modelParams.l0model;
+    var l0distFn = s1model.modelParams.l0distFn;
+    var l0seqFn = s1model.modelParams.l0seqFn;
+    var hiddenWorldFn = s1model.modelParams.rsaHiddenWorldFn;
+    var observedWorldFn = s1model.modelParams.rsaObservedWorldFn;
+
+    return function(utterance, world) {
+        var l0seq = l0seqFn(utterance, hiddenWorldFn(world), observedWorldFn(world));
+        var Dist = enc_modelDistribution(l0model, l0seq, l0distFn);
+        return Dist.score(true);
+    };
+};

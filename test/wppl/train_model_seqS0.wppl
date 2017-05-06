@@ -68,11 +68,12 @@ var s0model = enc_initTrainedModel(trainingParams, D_train);
 
 map(function(datum) {
     var inputIndices = gameppl.matrix.rowTensorNonZeroIndices(datum.input);
+    var inputValues = gameppl.matrix.rowTensorNonZeroValues(datum.input);
     var inputFeatures = gameppl.feature.getFeatureSetDimensionsFromIndices(inputf, inputIndices);
     var trueOutputSequence = gameppl.feature.getFeatureSetDimensionsFromIndices(outputf, datum.output);
 
     display("Input: " + inputFeatures);
-    //display("(Input values: " + inputFeatureValues + ")");
+    display("(Input values: " + inputValues + ")");
     display("True output: " + trueOutputSequence);
 
     display("Output distribution: ")

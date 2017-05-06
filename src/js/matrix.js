@@ -101,11 +101,24 @@ var rowTensorNonZeroIndices = function(v) {
     var indices = [];
     var vArray = v.toFlatArray();
 
-    for (var i = 0; i < vArray.length; i++) { // FIXME Badness
+    for (var i = 0; i < vArray.length; i++) {
         if (vArray[i] !== 0.0) {
             indices.push(i);
         }
     }
+    return indices;
+};
+
+var rowTensorNonZeroValues = function(v) {
+    var indices = [];
+    var vArray = v.toFlatArray();
+
+    for (var i = 0; i < vArray.length; i++) {
+        if (vArray[i] !== 0.0) {
+            indices.push(vArray[i]);
+        }
+    }
+
     return indices;
 };
 
@@ -127,5 +140,6 @@ module.exports = {
     matrixRowProductCat : matrixRowProductCat,
     matrixToRowTensorList : matrixToRowTensorList,
     rowTensorNonZeroIndices : rowTensorNonZeroIndices,
+    rowTensorNonZeroValues : rowTensorNonZeroValues,
     rowTensorToList : rowTensorToList
 };

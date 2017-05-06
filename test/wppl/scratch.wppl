@@ -12,5 +12,8 @@
 
 //display(gameppl.util._first([0,1,2,3,4,5,6], 4));
 
-var D = Infer({method : 'enumerate' }, function() { uniformDraw([[1,2],[3,4],[5,6]]) });
-D.score([1, 2]);
+//var D = Infer({method : 'enumerate' }, function() { uniformDraw([[1,2],[3,4],[5,6]]) });
+//D.score([1, 2]);
+
+var s = [1, 2, 3 ,4];
+display(s.join("\t"));

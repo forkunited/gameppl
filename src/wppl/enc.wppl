@@ -204,6 +204,26 @@ var enc_modelLL = function(model, output, input, distributionFn, maybeState) {
     return enc_decodeLL(decoder, output, input, latentState, distributionFn);
 };
 
+// enc_modelExpectedIncrement
+//
+// model : model object constructed by enc_initModel
+// input : observed input
+// distributionFn : decoder output, input, decoder -> Distribution
+// scoreFn : subsequence -> R
+// [maybeObserved] : Maybe observed sequence
+// [maybeNumSequenceSamples] : Number of sequences to sample if no observation given
+// [maybeState] : maybe state at which to start encoder
+//
+// return sequence of E[S_i-E[S_{i+1}] for scores S_i of the ith subsequence
+var enc_modelExpectedIncrement = function(model, input, distributionFn, scoreFn, maybeObserved, maybeNumSequenceSamples, maybeState) {
+    var encoder = model.encoder;
+    var decoder = model.decoder;
+    var latentState = enc_applyEncoder(encoder, input, maybeState);
+
+    return seq_decodeExpectedIncrement(decoder, input, latentState, distributionFn, scoreFn, maybeObserved, maybeNumSequenceSamples);
+};
+
+
 // _enc_initTrainingObj
 //
 // Private function
