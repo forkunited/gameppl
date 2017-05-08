@@ -352,6 +352,6 @@ var _seq_decodeExpectedIncrement = function(decoder, input, distributionFn, scor
     if (decoder.maxLength <= 1 || k === 1 || nextSym === decoder.terminalSymbol ) {
         return nextScores;
     } else {
-        return _seq_exactDecodeSample(decoder, input, distributionFn, scoreFn, nextObs, nextState, nextSeq, k-1, nextScores);
+        return _seq_decodeExpectedIncrement(decoder, input, distributionFn, scoreFn, nextObs, nextState, nextSeq, k-1, nextScores);
     }
 };
