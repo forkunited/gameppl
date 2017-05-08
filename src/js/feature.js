@@ -370,6 +370,7 @@ var computeFeatureSet = function(f, inputGameDirectory, utteranceActionFn) {
             var F = matrix.matrixInit(1, 0);
             var round = rgame.getUtteranceActionPairRound(utteranceActions[i]);
             var game = rgame.getUtteranceActionPairGame(utteranceActions[i]);
+            var info = rgame.getUtteranceActionPairInfo(utteranceActions[i]);
 
             for (var j = 0; j < f.vector.length; j++) {
                 var feature = f.features[f.vector[j]];
@@ -392,7 +393,7 @@ var computeFeatureSet = function(f, inputGameDirectory, utteranceActionFn) {
             }
 
             var id = game + '_' + round;
-            featureMatrices[id] = { id : id, game : game, round : round, F: F };
+            featureMatrices[id] = { id : id, game : game, round : round, info : info, F: F };
         }
     };
 
@@ -465,6 +466,10 @@ var getGameFromDatum = function(d) {
 
 var getRoundFromDatum = function(d) {
     return d.round;
+};
+
+var getInfoFromDatum = function(d) {
+    return d.info;
 };
 
 var getFeatureSetSize = function(f) {
@@ -554,6 +559,7 @@ module.exports = {
     getFeatureMatrixFromDatum : getFeatureMatrixFromDatum,
     getGameFromDatum : getGameFromDatum,
     getRoundFromDatum : getRoundFromDatum,
+    getInfoFromDatum : getInfoFromDatum,
     getFeatureMatrixVocabularySize : getFeatureMatrixVocabularySize,
     getFeatureSetSize : getFeatureSetSize,
     getFeatureSetFeature : getFeatureSetFeature,

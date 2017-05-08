@@ -4,7 +4,7 @@ const _ = require('underscore');
 
 const partition = require("./partition");
 
-
+var FIELD_INFO = "info";
 var FIELD_GAME_ID = "gameid";
 var FIELD_GAME_ROUNDS = "records";
 var FIELD_ROUND_ID = "roundNum";
@@ -74,7 +74,7 @@ var getRoundActionEvents = function(round) {
     });
 };
 
-var getRoundUtteranceActionPairs = function(gameId, round, sender) {
+var getRoundUtteranceActionPairs = function(gameId, round, sender, infoFn) {
     var pairs = [];
 
     for (var i = 1; i < getRoundEventCount(round); i++) {
@@ -85,6 +85,10 @@ var getRoundUtteranceActionPairs = function(gameId, round, sender) {
         var pair = { utterance : getRoundEvent(round, i-1), action : getRoundEvent(round, i) };
         pair[FIELD_GAME_ID] = gameId;
         pair[FIELD_ROUND_ID] = getRoundId(round);
+
+        if (infoFn !== undefined)
+            pair[FIELD_INFO] = infoFn(getRoundEvent(round, i));
+
         pairs.push(pair);
     }
 
@@ -109,9 +113,9 @@ var getGameActionEvents = function(game) {
     }), true);
 };
 
-var getGameUtteranceActionPairs = function(game, sender) {
+var getGameUtteranceActionPairs = function(game, sender, infoFn) {
     return _.flatten(_.map(getGameRounds(game), function(round) {
-        return getRoundUtteranceActionPairs(getGameId(game), round, sender);
+        return getRoundUtteranceActionPairs(getGameId(game), round, sender, infoFn);
     }), true);
 };
 
@@ -164,6 +168,10 @@ var getUtteranceActionPairRound = function(uaPair) {
 
 var getUtteranceActionPairGame = function(uaPair) {
     return uaPair[FIELD_GAME_ID];
+};
+
+var getUtteranceActionPairInfo = function(uaPair) {
+    return uaPair[FIELD_INFO];
 };
 
 var getUtteranceActionPairUtterance = function(uaPair) {
@@ -229,6 +237,7 @@ module.exports = {
     getPairedUtterancesFn : getPairedUtterancesFn,
     getUtteranceActionPairGame : getUtteranceActionPairGame,
     getUtteranceActionPairRound : getUtteranceActionPairRound,
+    getUtteranceActionPairInfo : getUtteranceActionPairInfo,
     getUtteranceActionPairUtterance : getUtteranceActionPairUtterance,
     getUtteranceActionPairAction : getUtteranceActionPairAction,
     readGame : readGame,

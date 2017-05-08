@@ -128,7 +128,31 @@ var listExpectation = function(lists) {
 	}
 
 	return exp;
-}
+};
+
+// aggregateKeyValuePairs
+//
+// kvPairs : list of (key, value)
+//
+// return object mapping key -> (value list)
+var aggregateKeyValuePairs = function(kvPairs) {
+	var obj = {};
+
+	obj.full = [];
+	for (var i = 0; i < kvPairs.length; i++) {
+		if (key in kvPairs[i]) {
+            var key = kvPairs[i].key;
+            var value = kvPairs[i].value;
+
+            if (!(key in obj))
+                obj[key] = [];
+            obj[key].push(value);
+        }
+		obj.full.push(value);
+	}
+
+	return obj;
+};
 
 module.exports = {
 	areDisjoint : areDisjoint,
@@ -141,5 +165,6 @@ module.exports = {
 	argmax : argmax,
 	_first : _first,
 	readListFile : readListFile,
-	listExpectation : listExpectation
-}
+	listExpectation : listExpectation,
+    aggregateKeyValuePairs : aggregateKeyValuePairs
+};
