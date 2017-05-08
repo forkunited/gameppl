@@ -108,7 +108,7 @@ var readListFile = function(filePath) {
 
 // Computes an "average list" from a list of lists
 var listExpectation = function(lists) {
-	var maxLength = _.max(lists, function(list) { return list.length });
+	var maxLength = _.max(lists, function(list) { return list.length }).length;
 	var exp = [];
 	var norms = [];
 	for (var i = 0; i < maxLength; i++) {
@@ -118,8 +118,8 @@ var listExpectation = function(lists) {
 
 	for (var i = 0; i < lists.length; i++) {
 		for (var j = 0; j < lists[i].length; j++) {
-			exp[i] += lists[i][j];
-			norms[i] += 1.0;
+			exp[j] += lists[i][j];
+			norms[j] += 1.0;
 		}
 	}
 

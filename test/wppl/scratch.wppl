@@ -15,5 +15,7 @@
 //var D = Infer({method : 'enumerate' }, function() { uniformDraw([[1,2],[3,4],[5,6]]) });
 //D.score([1, 2]);
 
-var s = [1, 2, 3 ,4];
-display(s.join("\t"));
+//var s = [1, 2, 3 ,4];
+//display(s.join("\t"));
+
+gameppl.util.listExpectation([[0.1, 2], [3.5, 4, 5]]);
