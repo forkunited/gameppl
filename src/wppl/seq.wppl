@@ -170,11 +170,11 @@ var seq_decodeLL = function(decoder, output, input, latentState, distributionFn)
 var seq_decodeExpectedIncrement = function(decoder, input, latentState, distributionFn, scoreFn, maybeObserved, maybeNumSequenceSamples) {
     if (maybeObserved === undefined) {
         var scoreSeqs = repeat(numSequenceSamples, function () {
-            _seq_decodeExpectedIncrement(decoder, input, distributionFn, scoreFn)
+            _seq_decodeExpectedIncrement(decoder, input, distributionFn, scoreFn, undefined, latentState)
         });
         return gameppl.util.listExpectation(scoreSeqs);
     } else {
-        return _seq_decodeExpectedIncrement(decoder, input, distributionFn, scoreFn, maybeObserved);
+        return _seq_decodeExpectedIncrement(decoder, input, distributionFn, scoreFn, maybeObserved, latentState);
     }
 };
 

@@ -220,7 +220,7 @@ var enc_modelExpectedIncrement = function(model, input, distributionFn, scoreFn,
     var decoder = model.decoder;
     var latentState = enc_applyEncoder(encoder, input, maybeState);
 
-    return seq_decodeExpectedIncrement(decoder, input, latentState, distributionFn, scoreFn, maybeObserved, maybeNumSequenceSamples);
+    return seq_decodeExpectedIncrement(decoder.obj, input, latentState, distributionFn, scoreFn, maybeObserved, maybeNumSequenceSamples);
 };
 
 
