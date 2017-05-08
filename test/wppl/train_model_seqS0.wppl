@@ -89,5 +89,5 @@ map(function(datum) {
 var trainEval = evaluation_modelEncLL(s0model, D_train, util_objSoftmaxCategorical);
 var devEval = evaluation_modelEncLL(s0model, D_dev, util_objSoftmaxCategorical);
 
-display("F\titerations\ttrainLL\tdevLL\ttrainNeg\tdevNeg\ttrainUndef\tdevUndef");
-display(inputFName + "\t" + iterations + "\t" + trainEval.ll + "\t" + devEval.ll + "\t" + trainEval.neg + "\t" + devEval.neg + "\t" + trainEval.undef + "\t" + devEval.undef);
+display("F\tseed\titerations\ttrainLL\tdevLL\ttrainNeg\tdevNeg\ttrainUndef\tdevUndef");
+display(inputFName + "\t" + args["random-seed"] + "\t" + iterations + "\t" + trainEval.ll + "\t" + devEval.ll + "\t" + trainEval.neg + "\t" + devEval.neg + "\t" + trainEval.undef + "\t" + devEval.undef);
