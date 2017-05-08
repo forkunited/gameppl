@@ -30,7 +30,7 @@ y = sys.argv[5]
 
 where = None
 where_values = None
-if len(sys.argv) > 6:
+if len(sys.argv) > 6 and sys.argv[6] != 'None' and sys.argv[7] != 'None':
     where = sys.argv[6].split(",")
     where_values = sys.argv[7].split(",")
 

@@ -11,7 +11,7 @@ var splitName = args["splitName"];
 var splitType = args["splitType"];
 var maxUtteranceLength = 7;
 var approximationBeamSize = 5;
-var batchSize = 100;
+var batchSize = 10;
 var gradientSamples = 1;
 
 var inputf = gameppl.feature.loadFeatureSet(rootDir + "/examples/features/vocab/" + inputFName);
