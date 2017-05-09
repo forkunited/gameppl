@@ -23,19 +23,19 @@ var evaluation_modelDistLL = function(modelDist, D) {
 // return log-likelihood of data in D according to encoder/decoder model
 // with distributions constructed through distributionFn
 var evaluation_modelEncLL = function(model, D, distributionFn) {
-    var makeInfoKey = function(d) { return (d.info) ? _.join(_.keys(d.info), ".") : undefined };
+    var makeInfoKey = function(d) { return (d.info) ? _.join(_.values(d.info), ".") : undefined };
 
     var lls = map(function(d) { return { key : makeInfoKey(d), value : enc_modelLL(model, d.output, d.input, distributionFn) } }, D);
     var aggs = gameppl.util.aggregateKeyValuePairs(lls);
     return mapObject(function(agg, agglls) {
         return {
-            ll: sum(map(function (ll) {
+            ll: listMean(map(function (ll) {
                 ll !== -Infinity && ll !== undefined ? ll : 0.0
-            }, agglls)) / D.length,
-            neg: sum(map(function (ll) {
+            }, agglls)),
+            neg: listMean(map(function (ll) {
                 ll === -Infinity ? 1.0 : 0.0
             }, agglls)) / D.length,
-            undef: sum(map(function (ll) {
+            undef: listMean(map(function (ll) {
                 ll === undefined ? 1.0 : 0.0
             }, agglls)) / D.length
         };
@@ -49,14 +49,14 @@ var evaluation_modelEncLL = function(model, D, distributionFn) {
 //
 // return [list of keys, list of values]
 var evaluation_modelEncLLFlattened = function(lls, maybePrefix) {
-    var keyValuePairs = _.flatten(mapObject(function(key, innerObj) {
-        return mapObject(function(innerKey, innerValue) {
+    var keyValuePairs = _.flatten(_.values(mapObject(function(key, innerObj) {
+        return _.values(mapObject(function(innerKey, innerValue) {
             if (maybePrefix)
                 return [maybePrefix + "." + key + "." + innerKey, innerValue];
             else
                 return [key + "." + innerKey, innerValue];
-        }, innerObj)
-    }));
-
+        }, innerObj))
+    }, lls)));
+    
     return _.unzip(sort(keyValuePairs, lt, function(kvPair) { return kvPair[0] }));
 };

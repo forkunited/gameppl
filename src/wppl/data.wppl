@@ -117,8 +117,8 @@ var data_makeFromFeatureMatrices = function(inputF, outputF, params) {
 
 		var input = getDataByType(inputTensors, params.inputType);
         var output = getDataByType(outputTensors, params.outputType);
-
-		return {
+		
+                return {
 			id : id,
 			game : gameppl.feature.getGameFromDatum(outputf),
 			round : gameppl.feature.getRoundFromDatum(outputf),

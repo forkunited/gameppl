@@ -140,7 +140,7 @@ var aggregateKeyValuePairs = function(kvPairs) {
 
 	obj.full = [];
 	for (var i = 0; i < kvPairs.length; i++) {
-		if (key in kvPairs[i]) {
+		if ("key" in kvPairs[i]) {
             var key = kvPairs[i].key;
             var value = kvPairs[i].value;
 
