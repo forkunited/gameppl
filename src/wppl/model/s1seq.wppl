@@ -40,7 +40,7 @@ var _initS1DistFn = function(initParams) {
     }
 };
 
-// s1inc_initTrainedModel
+// s1seq_initTrainedModel
 //
 // params:
 //   maxUtteranceLength : Maximum length for decoded utterances
@@ -62,8 +62,8 @@ var _initS1DistFn = function(initParams) {
 //   rsaObservedWorldFn : world -> part of world observed by listener
 // D : Data
 //
-// return trained s1 incremental model
-var s1inc_initTrainedModel = function(params, D) {
+// return trained s1 sequential model
+var s1seq_initTrainedModel = function(params, D) {
     // S0 model
     var s0Params = {
         encoderType : ENC_NN,
@@ -195,44 +195,44 @@ var s1inc_initTrainedModel = function(params, D) {
     return s1model;
 };
 
-// s1inc_getDistributionFn
+// s1seq_getDistributionFn
 //
 // s1model : s1 model object constructed by s1inc_initTrainedModel
 //           function above
 //
 // return s1 distribution function that takes s1 beam search output
 // and returns an S1 rsa distribution
-var s1inc_getDistributionFn = function(s1model) {
+var s1seq_getDistributionFn = function(s1model) {
     return s1model.modelParams.s1distFn;
 };
 
-// s1inc_getSModel
+// s1seq_getS0Model
 //
 // s1model : s1 model object constructed by s1inc_initTrainedModel
 //           function above
 //
-// return language model used in s1
-var s1inc_getSModel = function(s1model) {
-    return s1model.modelParams.s_model;
+// return s0 model used in s1
+var s1seq_getS0Model = function(s1model) {
+    return s1model.modelParams.s0model;
 };
 
-// s1inc_getL0Model
+// s1seq_getL0Model
 //
 // s1model : s1 model object constructed by s1inc_initTrainedModel
 //           function above
 //
 // return l0 model
-var s1inc_getL0Model = function(s1model) {
+var s1seq_getL0Model = function(s1model) {
     return s1model.modelParams.l0model;
 };
 
-// s1inc_getMeaningFn
+// s1seq_getMeaningFn
 //
 // s1model : s1 model object constructed by s1inc_initTrainedModel
 //           function above
 //
 // return literal meaning function : utterance x world -> [0, 1]
-var s1inc_getMeaningFn = function(s1model) {
+var s1seq_getMeaningFn = function(s1model) {
     var l0model = s1model.modelParams.l0model;
     var l0distFn = s1model.modelParams.l0distFn;
     var l0seqFn = s1model.modelParams.l0seqFn;
