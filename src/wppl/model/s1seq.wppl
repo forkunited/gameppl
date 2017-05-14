@@ -71,7 +71,7 @@ var s1seq_initTrainedModel = function(params, D) {
         encoderParamFn : function() {
             return {
                 name : "enc_S0",
-                inputDimension : s0inputDimension,
+                inputDimension : params.s0inputDimension,
                 encoderType : NN_ENCODER_TANH,
                 latentDimension : params.latentDimension
             };
@@ -121,7 +121,8 @@ var s1seq_initTrainedModel = function(params, D) {
         return Bernoulli({ p : T.toScalars(output)[0] });
     };
 
-    var s0model = enc_initTrainedModel(sParams,
+    var s0inputFn = params.s0inputFn;
+    var s0model = enc_initTrainedModel(s0Params,
         map(function(datum) {
             return mapObject(function (key, value) {
                 if (key === 'input')
