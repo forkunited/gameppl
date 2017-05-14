@@ -34,10 +34,10 @@ var evaluation_modelEncLL = function(model, D, distributionFn) {
             }, agglls)),
             neg: listMean(map(function (ll) {
                 ll === -Infinity ? 1.0 : 0.0
-            }, agglls)) / D.length,
+            }, agglls)),
             undef: listMean(map(function (ll) {
                 ll === undefined ? 1.0 : 0.0
-            }, agglls)) / D.length
+            }, agglls))
         };
     }, aggs);
 };
