@@ -6,6 +6,7 @@
   "webppl": {
     "wppl": [
       "src/wppl/model/s1inc.wppl",
+      "src/wppl/model/s1seq.wppl",
       "src/wppl/data.wppl",
       "src/wppl/enc.wppl",
       "src/wppl/evaluation.wppl",
