@@ -1,6 +1,6 @@
 // s1seq.wppl
 //
-// Represents a sequential RSA S1 sequence learning model
+// Represents a RSA S1 sequence learning model
 // (Beam searched S0 used for utterance prior)
 
 // _initS1DistFn
@@ -243,6 +243,6 @@ var s1seq_getMeaningFn = function(s1model) {
     return function(utterance, world) {
         var l0seq = l0seqFn(utterance, hiddenWorldFn(world), observedWorldFn(world));
         var Dist = enc_modelDistribution(l0model, l0seq, l0distFn);
-        return Dist.score(true);
+        return Math.exp(Dist.score(true));
     };
 };

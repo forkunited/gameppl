@@ -311,6 +311,6 @@ var s1inc_getMeaningFn = function(s1model) {
     return function(utterance, world) {
         var l0seq = l0seqFn(utterance, hiddenWorldFn(world), observedWorldFn(world));
         var Dist = enc_modelDistribution(l0model, l0seq, l0distFn);
-        return Dist.score(true);
+        return  Math.exp(Dist.score(true));
     };
 };

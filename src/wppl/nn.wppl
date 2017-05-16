@@ -9,11 +9,12 @@
 //
 
 
-// Specifies whether deocder has a sigmoid, linear, or
-// softmax output later
+// Specifies whether deocder has a sigmoid, linear,
+// softmax, or constant output later
 var NN_DECODER_SIGMOID = 0;
 var NN_DECODER_LINEAR = 1;
 var NN_DECODER_SOFTMAX = 2;
+var NN_DECODER_CONSTANT = 3;
 
 // Specifies whether encoder uses a tanh activation layer,
 // or ignores the input and acts as a constant function
@@ -110,6 +111,9 @@ var nn_initDecoder = function(params) {
             softmax,
             affine('dec_layer_0_' + params.name, { in : params.latentDimension, out : params.outputDimension, param : modelParam })
         ]);
+    } else if (params.decoderType == NN_DECODER_CONSTANT) {
+        var constantFn = params.constantFn;
+        return constantFn;
     }
 };
 
