@@ -1,15 +1,19 @@
 var _ = require("underscore");
+const util = require('./util');
 
 var distToObject = function(dist, roundPlace) {
 	if (dist.params.vs !== undefined) {
 		var obj = {};
 		for (var i = 0; i < dist.params.vs.length; i++) {
-			obj[dist.params.vs[i]] = Math.round(dist.params.ps[i] * Math.pow(10,roundPlace))/ Math.pow(10,roundPlace);
+			if (roundPlace === undefined)
+				obj[dist.params.vs[i]] = dist.params.ps[i];
+			else
+				obj[dist.params.vs[i]] = Math.round(dist.params.ps[i] * Math.pow(10,roundPlace))/ Math.pow(10,roundPlace);
 		}
 		return obj;
     } else {
         return _.mapObject(dist.params.dist, function (val, key) {
-            return Math.round(val.prob * Math.pow(10,roundPlace))/Math.pow(10,roundPlace);
+            return (roundPlace === undefined) ? val.prob : Math.round(val.prob * Math.pow(10,roundPlace))/Math.pow(10,roundPlace);
         });
     }
 }
@@ -64,7 +68,7 @@ var objectModes = function(p) {
     var pList = _.pairs(p);
     var pSorted = _.sortBy(pList, function(v){ return -v[1]; });
     var pTop = _.filter(pSorted, function(v) { return v[1] == pSorted[0][1] });
-	return getDimension(pTop, 0);
+	return util.getDimension(pTop, 0);
 }
 
 var shareModes = function(p, q) {

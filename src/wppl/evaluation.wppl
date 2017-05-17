@@ -13,6 +13,34 @@ var evaluation_modelDistLL = function(modelDist, D) {
     return sum(map(function(d) { return modelDist(d.input).score(d.output) }, D));
 };
 
+// evaluation_modelEncModeAccuracy
+//
+// model : encoder/decoder model represented by code in enc.wppl
+// D : data set containing (input,output) datums
+// distributionFn : function that takes encoder/decoder model output
+// and produces a distribution
+//
+// return accuracy on data in D for encoder/decoder model
+// with distributions constructed through distributionFn
+var evaluation_modelEncModeAccuracy = function(model, D, distributionFn) {
+    var makeInfoKey = function(d) { return (d.info) ? _.join(_.values(d.info), ".") : undefined };
+
+    var correctIndicators = map(function(d) {
+        var modes = enc_modelModes(model, d.output, d.input, distributionFn);
+        var correct = any(function(mode) { mode === d.output.toString() }, modes) ? 1.0 : 0.0 ;
+
+        return { key : makeInfoKey(d), value : correct }
+    }, D);
+
+    var aggs = gameppl.util.aggregateKeyValuePairs(correctIndicators);
+
+    return mapObject(function(agg, aggIndicators) {
+        return {
+            acc : listMean(aggIndicators)
+        };
+    }, aggs);
+};
+
 // evaluation_modelEncLL
 //
 // model : encoder/decoder model represented by code in enc.wppl
@@ -42,13 +70,13 @@ var evaluation_modelEncLL = function(model, D, distributionFn) {
     }, aggs);
 };
 
-// evaluation_modelEncLLFlattened
+// evaluation_modelEncEvalFlattened
 //
-// lls : Evaluations output from evaluation_modelEncLL
+// evals : Evaluations output from evaluation_modelEncLL
 // [maybePrefix] : Optional prefix for key strings
 //
 // return [list of keys, list of values]
-var evaluation_modelEncLLFlattened = function(lls, maybePrefix) {
+var evaluation_modelEncEvalFlattened = function(evals, maybePrefix) {
     var keyValuePairs = _.flatten(_.values(mapObject(function(key, innerObj) {
         return _.values(mapObject(function(innerKey, innerValue) {
             if (maybePrefix)
@@ -56,7 +84,7 @@ var evaluation_modelEncLLFlattened = function(lls, maybePrefix) {
             else
                 return [key + "." + innerKey, innerValue];
         }, innerObj))
-    }, lls)));
+    }, evals)));
     
     return _.unzip(sort(keyValuePairs, lt, function(kvPair) { return kvPair[0] }));
 };

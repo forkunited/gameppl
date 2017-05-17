@@ -86,8 +86,8 @@ map(function(datum) {
     display("\n");
 }, gameppl.util._first(D_dev, 30));
 
-var trainEval = evaluation_modelEncLLFlattened(evaluation_modelEncLL(s0model, D_train, util_objSoftmaxCategorical), "train");
-var devEval = evaluation_modelEncLLFlattened(evaluation_modelEncLL(s0model, D_dev, util_objSoftmaxCategorical), "dev");
+var trainEval = evaluation_modelEncEvalFlattened(evaluation_modelEncLL(s0model, D_train, util_objSoftmaxCategorical), "train");
+var devEval = evaluation_modelEncEvalFlattened(evaluation_modelEncLL(s0model, D_dev, util_objSoftmaxCategorical), "dev");
 
 display("F\tseed\titerations\t" + trainEval[0].join("\t") + "\t" + devEval[0].join("\t"));
 display(inputFName + "\t" + args["random-seed"] + "\t" + iterations + "\t" + trainEval[1].join("\t") + "\t" + devEval[1].join("\t"));

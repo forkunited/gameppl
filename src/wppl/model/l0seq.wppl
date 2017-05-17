@@ -1,0 +1,170 @@
+// l0seq.wppl
+//
+// Represents a sequential RSA L0 sequence learning model
+
+// _initL0DistFn
+//
+// Private function for constructing function that takes
+// l0 encoder/decoder output and constructs an
+// rsa L0 utterance distribution
+var _initS1DistFn = function(initParams) {
+    var worldPrior = initParams.rsaWorldPrior;
+    var hiddenWorldFn = initParams.rsaHiddenWorldFn;
+    var utteranceFn = initParams.rsaUtteranceFn;
+    var l0seqFn = initParams.l0seqFn; // utterance x hidden x observation -> l0 input vector sequence
+
+    return function(l0output, input, params) {
+        var rsaParams = {
+            cacheSize: 100,
+            parametersPrior: function(observation) { return observation },
+            worldPrior: worldPrior,
+            denotationDistFn: function(utterance, hidden, parameters) {
+                var l0seq = l0seqFn(utterance, hidden, parameters);
+                return enc_modelDistribution(l0model, l0seq, l0distFn);
+            }
+        };
+
+        var L0 = makeRSA(rsaParams, RSA_L, 0);
+        var observation = observedWorldFn(input);
+        var utterance = utteranceFn(input);
+
+        return L0(utterance, observation);
+    }
+};
+
+// l0seq_initTrainedModel
+//
+// params:
+//   utteranceDimension : Size of utterance token vectors
+//   inputDimension : Dimension of inputs to the l0 encoder
+//   latentDimension : Size of hidden layer (must be even)
+//   iterations : Training iterations
+//   gradientSamples : Training gradient samples
+//   batchSize : Training batch size,
+//   seqFn : utterance x hidden x observation -> l0 input vector sequence
+//   rsaWorldPrior : observed world -> sample of hidden world
+//   rsaUtteranceFn : datum.input -> utterance
+//   rsaObservedWorldFn : datum.input -> part of world observed by listener
+// D : Data
+//
+// return trained l0 model
+var l0seq_initTrainedModel = function(params, D) {
+    var meaningParams = {
+        encoderType : ENC_SEQ,
+        decoderType : ENC_NN,
+        encoderParams : {
+            name : "enc_meaning",
+            latentDimension : params.latentDimension,
+            inputDimension : params.inputDimension,
+            initStepFn : nn_initSequenceEncoderStep,
+            inputType : DATA_TYPE_VECTOR,
+            makeInitialStateFn : function() {
+                var enc_state_fn = nn_initEncoder({name : "enc_init_meaning", encoderType : NN_ENCODER_CONSTANT, latentDimension : params.latentDimension });
+                return enc_state_fn();
+            }
+        },
+        decoderParams : {
+            name: "dec_meaning",
+            decoderType :  NN_DECODER_SIGMOID,
+            latentDimension : params.latentDimension,
+            outputDimension : 1
+        }
+    };
+
+    var meaningDistFn = function(output) {
+        return Bernoulli({ p : T.toScalars(output)[0] });
+    };
+
+    /* L0 */
+
+    var l0distFn = function(l0fillerOutput, input, modelParams) {
+        var utteranceFn = modelParams.rsaUtteranceFn;
+        var observedWorldFn = modelParams.rsaObservedWorldFn;
+        var worldPrior = modelParams.rsaWorldPrior;
+        var meaningDistFn = modelParams.meaningDistFn;
+        var seqFn = modelParams.seqFn;
+
+        var rsaParams = {
+            cacheSize: 100,
+            parametersPrior: function(observation) { return observation },
+            worldPrior: worldPrior,
+            denotationDistFn: function(utterance, hidden, parameters) {
+                var seq = seqFn(utterance, hidden, parameters);
+                return enc_modelDistribution(modelParams.meaningModel, seq, meaningDistFn);
+            }
+        };
+
+        var L0 = makeRSA(rsaParams, RSA_L, 0);
+        var observation = observedWorldFn(input);
+        var utterance = utteranceFn(input);
+
+        return L0(utterance, observation);
+    }
+
+    var l0Params = {
+        encoderType : ENC_NN,
+        decoderType : ENC_NN,
+        modelParamFn : function() {
+            var meaningModel = enc_initModel(meaningParams);
+
+            return {
+                meaningDistFn : meaningDistFn,
+                seqFn : params.seqFn,
+                rsaWorldPrior : params.rsaWorldPrior,
+                rsaUtteranceFn : params.rsaUtteranceFn,
+                rsaObservedWorldFn : params.rsaObservedWorldFn,
+                l0distFn : l0distFn
+            };
+        },
+        encoderParamFn : function(modelParams) {
+            return {
+                name : "enc_L0",
+                encoderType : NN_ENCODER_CONSTANT,
+                constantFn : function(input) { }
+            };
+        },
+        decoderParamFn : function() {
+            return {
+                name : "dec_S1",
+                encoderType : NN_DECODER_CONSTANT,
+                constantFn : function(input) { }
+            };
+        },
+        iterations : params.iterations,
+        gradientSamples : params.gradientSamples,
+        batchSize : params.batchSize,
+        distributionFn : l0distFn
+    };
+
+    var l0model = enc_initTrainedModel(l0Params, D);
+    return l0model;
+};
+
+// l0seq_getDistributionFn
+//
+// l0model : l0 model object constructed by l0inc_initTrainedModel
+//           function above
+//
+// return l0 distribution function that returns an L0 rsa distribution
+var s1seq_getDistributionFn = function(l0model) {
+    return l0model.modelParams.l0distFn;
+};
+
+// l0seq_getMeaningFn
+//
+// l0model : l0 model object constructed by l0seq_initTrainedModel
+//           function above
+//
+// return literal meaning function : utterance x world -> [0, 1]
+var l0seq_getMeaningFn = function(l0model) {
+    var meaningModel = l0model.modelParams.meaningModel;
+    var meaningDistFn = l0model.modelParams.meaningDistFn;
+    var seqFn = l0model.modelParams.seqFn;
+    var observedWorldFn = l0model.modelParams.rsaObservedWorldFn;
+
+    return function(utterance, world) {
+        var seq = seqFn(utterance, hiddenWorldFn(world), observedWorldFn(world));
+        var Dist = enc_modelDistribution(meaningModel, seq, meaningDistFn);
+        return Math.exp(Dist.score(true));
+    };
+};

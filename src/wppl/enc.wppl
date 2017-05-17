@@ -186,6 +186,20 @@ var enc_modelDistribution = function(model, input, distributionFn, maybeState) {
     return enc_decodeDistribution(decoder, input, latentState, distributionFn);
 };
 
+// enc_modelModes
+//
+// model : Model object constructed by enc_initModel
+// input : Observed input to pass through encoder
+// distributionFn : Function that takes decoder output and constructs a distribution
+// [maybeState] : Optional latent state to start encoder from
+//
+// return modes of distribution constructed from output of decoder applied to latent state
+var enc_modelModes = function(model, input, distributionFn, maybeState) {
+    var Dist = enc_modelDistribution(model, input, distributionFn, maybeState);
+    var distObj = gameppl.dist.distToObject(Dist);
+    return gameppl.dist.modes(distObj);
+};
+
 // enc_modelLL
 //
 // model : Model object constructed by enc_initModel
