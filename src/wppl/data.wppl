@@ -75,7 +75,7 @@ var data_make = function(distribution, samplesPerInput, inputs) {
 
 };
 
-var _data_getDataByType = function(vectorSequence, dataType) {
+var _data_getDataByType = function(vectorSequence, dataType, params) {
     if (dataType == DATA_TYPE_VECTOR) {
         return vectorSequence[0];
     } else if (dataType == DATA_TYPE_SCALAR) {
@@ -115,8 +115,8 @@ var data_makeFromFeatureMatrices = function(inputF, outputF, params) {
 		var outputTensorsTemp = gameppl.matrix.matrixToRowTensorList(outputMat);
 		var outputTensors = map(function(t) { Vector(t.toFlatArray()) }, outputTensorsTemp);
 
-		var input = _data_getDataByType(inputTensors, params.inputType);
-        var output = _data_getDataByType(outputTensors, params.outputType);
+		var input = _data_getDataByType(inputTensors, params.inputType, params);
+        var output = _data_getDataByType(outputTensors, params.outputType, params);
 		
         return {
 			id : id,
@@ -168,9 +168,9 @@ var data_makeUttObsFromFeatureMatrices = function(uttF, obsF, outputF, params) {
         var obsTensorsTemp = gameppl.matrix.matrixToRowTensorList(obsMat);
         var obsTensors = map(function(t) { Vector(t.toFlatArray()) }, obsTensorsTemp);
 
-        var utt = _data_getDataByType(uttTensors, params.uttType);
-        var output = _data_getDataByType(outputTensors, params.outputType);
-        var obs = _data_getDataByType(obsTensors, params.obsType);
+        var utt = _data_getDataByType(uttTensors, params.uttType, params);
+        var output = _data_getDataByType(outputTensors, params.outputType, params);
+        var obs = _data_getDataByType(obsTensors, params.obsType, params);
 
         return {
             id : id,

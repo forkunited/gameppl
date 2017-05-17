@@ -196,8 +196,7 @@ var enc_modelDistribution = function(model, input, distributionFn, maybeState) {
 // return modes of distribution constructed from output of decoder applied to latent state
 var enc_modelModes = function(model, input, distributionFn, maybeState) {
     var Dist = enc_modelDistribution(model, input, distributionFn, maybeState);
-    var distObj = gameppl.dist.distToObject(Dist);
-    return gameppl.dist.modes(distObj);
+    return gameppl.dist.modes(Dist);
 };
 
 // enc_modelLL

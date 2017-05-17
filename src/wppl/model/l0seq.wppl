@@ -2,35 +2,7 @@
 //
 // Represents a sequential RSA L0 sequence learning model
 
-// _initL0DistFn
-//
-// Private function for constructing function that takes
-// l0 encoder/decoder output and constructs an
-// rsa L0 utterance distribution
-var _initS1DistFn = function(initParams) {
-    var worldPrior = initParams.rsaWorldPrior;
-    var hiddenWorldFn = initParams.rsaHiddenWorldFn;
-    var utteranceFn = initParams.rsaUtteranceFn;
-    var l0seqFn = initParams.l0seqFn; // utterance x hidden x observation -> l0 input vector sequence
 
-    return function(l0output, input, params) {
-        var rsaParams = {
-            cacheSize: 100,
-            parametersPrior: function(observation) { return observation },
-            worldPrior: worldPrior,
-            denotationDistFn: function(utterance, hidden, parameters) {
-                var l0seq = l0seqFn(utterance, hidden, parameters);
-                return enc_modelDistribution(l0model, l0seq, l0distFn);
-            }
-        };
-
-        var L0 = makeRSA(rsaParams, RSA_L, 0);
-        var observation = observedWorldFn(input);
-        var utterance = utteranceFn(input);
-
-        return L0(utterance, observation);
-    }
-};
 
 // l0seq_initTrainedModel
 //
@@ -59,8 +31,8 @@ var l0seq_initTrainedModel = function(params, D) {
             initStepFn : nn_initSequenceEncoderStep,
             inputType : DATA_TYPE_VECTOR,
             makeInitialStateFn : function() {
-                var enc_state_fn = nn_initEncoder({name : "enc_init_meaning", encoderType : NN_ENCODER_CONSTANT, latentDimension : params.latentDimension });
-                return enc_state_fn();
+                var constEncoder = nn_initEncoder({name : "enc_init_meaning", encoderType : NN_ENCODER_CONSTANT, latentDimension : params.latentDimension });
+                return nn_applyEncoder(constEncoder);
             }
         },
         decoderParams : {
@@ -93,7 +65,7 @@ var l0seq_initTrainedModel = function(params, D) {
                 return enc_modelDistribution(modelParams.meaningModel, seq, meaningDistFn);
             }
         };
-
+        
         var L0 = makeRSA(rsaParams, RSA_L, 0);
         var observation = observedWorldFn(input);
         var utterance = utteranceFn(input);
@@ -106,8 +78,9 @@ var l0seq_initTrainedModel = function(params, D) {
         decoderType : ENC_NN,
         modelParamFn : function() {
             var meaningModel = enc_initModel(meaningParams);
-
+            
             return {
+                meaningModel : meaningModel,
                 meaningDistFn : meaningDistFn,
                 seqFn : params.seqFn,
                 rsaWorldPrior : params.rsaWorldPrior,
@@ -120,14 +93,14 @@ var l0seq_initTrainedModel = function(params, D) {
             return {
                 name : "enc_L0",
                 encoderType : NN_ENCODER_CONSTANT,
-                constantFn : function(input) { }
+                constantFn : function(input) { return 1 }
             };
         },
         decoderParamFn : function() {
             return {
-                name : "dec_S1",
-                encoderType : NN_DECODER_CONSTANT,
-                constantFn : function(input) { }
+                name : "dec_L0",
+                decoderType : NN_DECODER_CONSTANT,
+                constantFn : function(input) { return 1 }
             };
         },
         iterations : params.iterations,
@@ -146,7 +119,7 @@ var l0seq_initTrainedModel = function(params, D) {
 //           function above
 //
 // return l0 distribution function that returns an L0 rsa distribution
-var s1seq_getDistributionFn = function(l0model) {
+var l0seq_getDistributionFn = function(l0model) {
     return l0model.modelParams.l0distFn;
 };
 

@@ -26,7 +26,7 @@ var evaluation_modelEncModeAccuracy = function(model, D, distributionFn) {
     var makeInfoKey = function(d) { return (d.info) ? _.join(_.values(d.info), ".") : undefined };
 
     var correctIndicators = map(function(d) {
-        var modes = enc_modelModes(model, d.output, d.input, distributionFn);
+        var modes = enc_modelModes(model, d.input, distributionFn);
         var correct = any(function(mode) { mode === d.output.toString() }, modes) ? 1.0 : 0.0 ;
 
         return { key : makeInfoKey(d), value : correct }

@@ -180,8 +180,8 @@ var s1inc_initTrainedModel = function(params, D) {
             initStepFn : nn_initSequenceEncoderStep,
             inputType : DATA_TYPE_VECTOR,
             makeInitialStateFn : function() {
-                var enc_state_fn = nn_initEncoder({name : "enc_init_L0", encoderType : NN_ENCODER_CONSTANT, latentDimension : params.latentDimension });
-                return enc_state_fn();
+                var encoderConstant = nn_initEncoder({name : "enc_init_L0", encoderType : NN_ENCODER_CONSTANT, latentDimension : params.latentDimension });
+                return nn_applyEncoder(encoderConstant);
             }
         },
         decoderParams : {

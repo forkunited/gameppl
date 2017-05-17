@@ -62,18 +62,21 @@ var _nn_makeState = function(params) {
 // return neural net encoder
 var nn_initEncoder = function(params) {
     if (params.encoderType === NN_ENCODER_TANH) {
-        return stack([
+        var encoderFn = stack([
             tanh,
             bias("enc_bias_0_" + params.name, { out : params.latentDimension, param : modelParam }),
             affine('enc_layer_0_' + params.name, { in : params.inputDimension, out : params.latentDimension, param : modelParam })
         ]);
+
+        return _.extend(_.clone(params), { encoderFn : encoderFn });
     } else if (params.encoderType == NN_ENCODER_CONSTANT) {
         if (params.constantFn !== undefined) {
             var constantFn = params.constantFn;
-            return constantFn;
+            return _.extend(_.clone(params), { encoderFn : constantFn });
         }
         var initialState = _nn_makeState({ name : params.name, dimension : params.latentDimension });
-        return function() { return initialState };
+        var encoderFn = function() { return initialState };
+        return _.extend(_.clone(params), { initialState : initialState, encoderFn : encoderFn });
     }
 };
 
@@ -84,7 +87,8 @@ var nn_initEncoder = function(params) {
 //
 // return latent state constructed from encoder applied to input
 var nn_applyEncoder = function(encoder, input, maybeState) {
-    return encoder(input);
+    var encoderFn = encoder.encoderFn;
+    return encoderFn(input);
 }
 
 // nn_initDecoder
@@ -98,22 +102,28 @@ var nn_applyEncoder = function(encoder, input, maybeState) {
 // return neural net decoder object
 var nn_initDecoder = function(params) {
     if (params.decoderType == NN_DECODER_SIGMOID) {
-        return stack([
+        var decoderFn = stack([
             sigmoid,
             affine('dec_layer_0_' + params.name, { in : params.latentDimension, out : params.outputDimension, param : modelParam })
         ]);
+
+        return _.extend(_.clone(params), { decoderFn : decoderFn });
     } else if (params.decoderType == NN_DECODER_LINEAR) {
-        return stack([
+        var decoderFn = stack([
             affine('dec_layer_0_' + params.name, { in : params.latentDimension, out : params.outputDimension, param : modelParam })
         ]);
+
+        return _.extend(_.clone(params), { decoderFn : decoderFn });
     } else if (params.decoderType == NN_DECODER_SOFTMAX) {
-        return stack([
+        var decoderFn = stack([
             softmax,
             affine('dec_layer_0_' + params.name, { in : params.latentDimension, out : params.outputDimension, param : modelParam })
         ]);
+
+        return _.extend(_.clone(params), { decoderFn : decoderFn });
     } else if (params.decoderType == NN_DECODER_CONSTANT) {
         var constantFn = params.constantFn;
-        return constantFn;
+        return _.extend(_.clone(params), { decoderFn : constantFn });
     }
 };
 
@@ -125,7 +135,8 @@ var nn_initDecoder = function(params) {
 //
 // return output resulting from applying decoder to latent state
 var nn_applyDecoder = function(decoder, input, latentState) {
-    return decoder(latentState);
+    var decoderFn = decoder.decoderFn;
+    return decoderFn(latentState);
 };
 
 // nn_decodeDistribution
@@ -164,7 +175,7 @@ var nn_decodeLL = function(decoder, output, input, latentState, distributionFn) 
 //
 // return sample from distribution given maybeObservation
 var nn_decodeSample = function(decoder, input, latentState, distributionFn, maybeObservation) {
-    var Dist = nn_decodeDistribution(decoder, latentState, distributionFn);
+    var Dist = nn_decodeDistribution(decoder, input, latentState, distributionFn);
     return util_observeHelper(Dist, maybeObservation);
 };
 
