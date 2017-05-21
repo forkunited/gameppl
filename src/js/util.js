@@ -2,6 +2,13 @@ const fs = require('fs');
 const _ = require("underscore");
 const Tensor = require("adnn/tensor");
 
+var types = {
+	JSON : 0,
+    NUMBER : 1,
+    LIST : 2,
+    STRING : 3
+};
+
 var _mapProduct = function(fn, arr1, arr2) {
     return _.flatten(
         _.map(arr1, function(item1) {
@@ -154,7 +161,44 @@ var aggregateKeyValuePairs = function(kvPairs) {
 	return obj;
 };
 
+var _fromString = function(item, type) {
+	if (type === types.JSON) {
+		return JSON.parse(item);
+	} else if (type === types.LIST) {
+		if (!item.startsWith("["))
+			item = "[" + item + "]";
+		return JSON.parse(item);
+	} else if (type === types.NUMBER) {
+		return parseInt(item);
+	} else {
+		return item;
+	}
+};
+
+
+// removeDuplicateScoredValues
+//
+// items : (value, score) list
+// itemType : (JSON, NUMBER, STRING, LIST)
+//
+// return (value, score) list with no duplicate values
+var removeDuplicateScoredValues = function(items, itemType) {
+	var obj = {};
+
+	for (var i = 0; i < items.length; i++) {
+		obj[items[i].value] = items[i].score;
+	}
+
+	var deduped = [];
+	for (var key in obj) {
+		deduped.push({ value : _fromString(key, itemType), score : obj[key] })
+	}
+
+	return deduped;
+};
+
 module.exports = {
+	types : types,
 	areDisjoint : areDisjoint,
 	getDimension : getDimension,
 	round : round,
@@ -166,5 +210,6 @@ module.exports = {
 	_first : _first,
 	readListFile : readListFile,
 	listExpectation : listExpectation,
-    aggregateKeyValuePairs : aggregateKeyValuePairs
+    aggregateKeyValuePairs : aggregateKeyValuePairs,
+	removeDuplicateScoredValues : removeDuplicateScoredValues
 };

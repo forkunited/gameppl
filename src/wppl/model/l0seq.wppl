@@ -71,11 +71,10 @@ var l0seq_initTrainedModel = function(params, D) {
         var utterance = utteranceFn(input);
 
         return L0(utterance, observation);
-    }
+    };
 
     var l0Params = {
-        encoderType : ENC_NN,
-        decoderType : ENC_NN,
+        name : "L0",
         modelParamFn : function() {
             var meaningModel = enc_initModel(meaningParams);
             
@@ -87,20 +86,6 @@ var l0seq_initTrainedModel = function(params, D) {
                 rsaUtteranceFn : params.rsaUtteranceFn,
                 rsaObservedWorldFn : params.rsaObservedWorldFn,
                 l0distFn : l0distFn
-            };
-        },
-        encoderParamFn : function(modelParams) {
-            return {
-                name : "enc_L0",
-                encoderType : NN_ENCODER_CONSTANT,
-                constantFn : function(input) { return 1 }
-            };
-        },
-        decoderParamFn : function() {
-            return {
-                name : "dec_L0",
-                decoderType : NN_DECODER_CONSTANT,
-                constantFn : function(input) { return 1 }
             };
         },
         iterations : params.iterations,

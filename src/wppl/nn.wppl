@@ -161,7 +161,7 @@ var nn_decodeDistribution = function(decoder, input, latentState, distributionFn
 //
 // return log likelihood score of given output
 var nn_decodeLL = function(decoder, output, input, latentState, distributionFn) {
-    var Dist = distributionFn(nn_applyDecoder(decoder, input, latentState), input, decoder);
+    var Dist = distributionFn(nn_applyDecoder(decoder, input, latentState), input, decoder, output);
     return Dist.score(output);
 };
 
@@ -175,8 +175,34 @@ var nn_decodeLL = function(decoder, output, input, latentState, distributionFn) 
 //
 // return sample from distribution given maybeObservation
 var nn_decodeSample = function(decoder, input, latentState, distributionFn, maybeObservation) {
-    var Dist = nn_decodeDistribution(decoder, input, latentState, distributionFn);
+    var Dist = nn_decodeDistribution(decoder, input, latentState, distributionFn, maybeObservation);
     return util_observeHelper(Dist, maybeObservation);
+};
+
+// nn_decodeScoredSamples
+//
+// decoder : decoder initialized by seq_initDecoder
+// input : observed input (probably passed through encoder to construct state)
+// latentState : state to decode
+// distributionFn : decoder output, input, decoder -> Distribution
+// n : number of samples
+// [maybeObserved] : Observation to factor on
+// [maybeType] : Maybe util.type of items in distribution support for distribution returned by distributionFn
+//
+// return at most n (value, score) samples plus maybeObserved
+var nn_decodeScoredSamples = function(decoder, input, latentState, distributionFn, n, maybeObserved, maybeType) {
+    var Dist = nn_decodeDistribution(decoder, input, latentState, distributionFn);
+    var samples = repeat(n, function() { var s = sample(Dist); return { value : s, score : Dist.score(s) }});
+    if (maybeObserved !== undefined) {
+        var samplesObs = samples.concat({
+            value : maybeObserved,
+            score : nn_decodeLL(decoder, maybeObserved, input, latentState, distributionFn)
+        });
+
+        return gameppl.util.removeDuplicateScoredValues(samplesObs, maybeType);
+    } else {
+        return gameppl.util.removeDuplicateScoredValues(samples, maybeType);
+    }
 };
 
 // nn_initSequenceEncoderStep

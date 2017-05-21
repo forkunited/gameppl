@@ -20,4 +20,12 @@
 
 //gameppl.util.listExpectation([[0.1, 2], [3.5, 4, 5]]);
 
-display(gameppl.dist.modes(Infer({method:'enumerate'}, function() { return sample(Categorical({vs: [0, 1, 2, 4], ps: [0.2, 0.3, 0.3, 0.2]})) })));
+//display(gameppl.dist.modes(Infer({method:'enumerate'}, function() { return sample(Categorical({vs: [0, 1, 2, 4], ps: [0.2, 0.3, 0.3, 0.2]})) })));
+
+var itemsList = [{value : [1,2], score : .5 }, {value : [1], score : .5 },{value : [1,2], score : .5 }]
+var itemsNumber = [{value : 1, score : .5 }, {value : 2, score : .5 },{value : 1, score : .5 }]
+var itemsString = [{value : "1", score : .5 }, {value : "2", score : .5 },{value : "1", score : .5 }]
+
+display(gameppl.util.removeDuplicateScoredValues(itemsList, gameppl.util.types.LIST));
+display(gameppl.util.removeDuplicateScoredValues(itemsNumber, gameppl.util.types.NUMBER));
+display(gameppl.util.removeDuplicateScoredValues(itemsString, gameppl.util.types.STRING));

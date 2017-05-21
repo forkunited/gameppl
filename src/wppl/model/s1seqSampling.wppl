@@ -1,0 +1,226 @@
+// s1seq.wppl
+//
+// Represents a RSA S1 sequence learning model
+// (Beam searched S0 used for utterance prior)
+
+// _initS1DistFn
+//
+// Private function for constructing function that takes
+// s0 encoder/decoder beam search output and constructs an
+// rsa S1 distribution using the output for the utterance
+// prior
+var _initS1DistFn = function(initParams) {
+    var worldPrior = initParams.rsaWorldPrior;
+    var hiddenWorldFn = initParams.rsaHiddenWorldFn;
+    var observedWorldFn = initParams.rsaObservedWorldFn;
+    var alpha = initParams.rsaAlpha;
+    var l0seqFn = initParams.l0seqFn; // utterance x hidden x observation -> l0 input vector sequence
+    var s0sampleSize = initParams.s0sampleSize;
+
+    return function(s1FillerOutput, world, params, maybeObserved) {
+        var l0model = params.l0model;
+        var l0distFn = params.l0distFn;
+        var s0model = params.s0model;
+        var s0inputFn = params.s0inputFn;
+
+        var s0output = enc_modelScoredSamples(s0model, s0inputFn(world), util_objCategorical, s0sampleSize, maybeObserved);
+
+        var rsaParams = {
+            cacheSize: 100,
+            alpha: alpha,
+            parametersPrior: function(observation) { return observation },
+            utterancePrior: function(observation, parameters) { sample(util_objSoftmaxCategorical(s0output)); },
+            worldPrior: worldPrior,
+            denotationDistFn: function(utterance, hidden, parameters) {
+                var l0seq = l0seqFn(utterance, hidden, parameters);
+                return enc_modelDistribution(l0model, l0seq, l0distFn);
+            }
+        };
+
+        var S1 = makeRSA(rsaParams, RSA_S, 1);
+        var observation = observedWorldFn(world);
+        var hidden = hiddenWorldFn(world);
+
+        return S1(hidden, observation);
+    }
+};
+
+// s1seq_initTrainedModel
+//
+// params:
+//   maxUtteranceLength : Maximum length for decoded utterances
+//   worldDimension : Dimension of input world
+//   utteranceDimension : Size of utterance token vectors
+//   l0inputDimension : Dimension of inputs to the l0 encoder
+//   s0inputDimension : Dimension of inputs to the l0 encoder
+//   latentDimension : Size of hidden layer (must be even)
+//   s0sampleSize : Number of samples to take from s0 for utterance prior
+//   iterations : Training iterations
+//   gradientSamples : Training gradient samples
+//   batchSize : Training batch size,
+//   l0seqFn : utterance x hidden x observation -> l0 input vector sequence
+//   s0inputFn : world -> input to s0 encoder
+//   rsaAlpha : Speaker rationality
+//   rsaWorldPrior : observed world -> sample of hidden world
+//   rsaWorldPriorSize : Number of elements in world prior support for a given observation
+//   rsaHiddenWorldFn : world -> part of world hidden from listener
+//   rsaObservedWorldFn : world -> part of world observed by listener
+// D : Data
+//
+// return trained s1 sequential model
+var s1seq_initTrainedModel = function(params, D) {
+    // S0 model
+    var s0Params = {
+        encoderType : ENC_NN,
+        decoderType : ENC_SEQ,
+        encoderParamFn : function() {
+            return {
+                name : "enc_S0",
+                inputDimension : params.s0inputDimension,
+                encoderType : NN_ENCODER_TANH,
+                latentDimension : params.latentDimension
+            };
+        },
+        decoderParamFn : function() {
+            return {
+                name : "dec_S0",
+                latentDimension : params.latentDimension,
+                outputDimension : params.utteranceDimension,
+                initStepFn : nn_initSequenceDecoderStep,
+                startSymbol : gameppl.feature.symbols.START_SYMBOL,
+                terminalSymbol : gameppl.feature.symbols.TERMINAL_SYMBOL,
+                maxLength : params.maxUtteranceLength,
+                samplingType : SEQ_DECODER_EXACT,
+                approximationBeamSize : params.beamSize
+            };
+        },
+        iterations : params.iterations,
+        gradientSamples : params.gradientSamples,
+        batchSize : params.batchSize,
+        distributionFn : util_objCategorical
+    };
+
+    var l0Params = {
+        encoderType : ENC_SEQ,
+        decoderType : ENC_NN,
+        encoderParams : {
+            name : "enc_L0",
+            latentDimension : params.latentDimension,
+            inputDimension : params.l0inputDimension,
+            initStepFn : nn_initSequenceEncoderStep,
+            inputType : DATA_TYPE_VECTOR,
+            makeInitialStateFn : function() {
+                var encoderConstant = nn_initEncoder({name : "enc_init_L0", encoderType : NN_ENCODER_CONSTANT, latentDimension : params.latentDimension });
+                return nn_applyEncoder(encoderConstant);
+            }
+        },
+        decoderParams : {
+            name: "dec_L0",
+            decoderType :  NN_DECODER_SIGMOID,
+            latentDimension : params.latentDimension,
+            outputDimension : 1
+        }
+    };
+
+    var l0distFn = function(output) {
+        return Bernoulli({ p : T.toScalars(output)[0] });
+    };
+
+    var s0inputFn = params.s0inputFn;
+    var s0model = enc_initTrainedModel(s0Params,
+        map(function(datum) {
+            return mapObject(function (key, value) {
+                if (key === 'input')
+                    return s0inputFn(value)
+                else
+                    return value
+            }, datum)
+        }, D)
+    ); // Applies s0inputFn to data set before training s0
+
+    /* S1 */
+
+    var s1distFn = _initS1DistFn(params);
+
+    var s1Params = {
+        name : "S1",
+        modelParamFn : function() {
+            var l0model = enc_initModel(l0Params);
+
+            var l0distFn = function(output) {
+                return Bernoulli({ p : T.toScalars(output)[0] });
+            };
+
+            return {
+                s0model : s0model,
+                l0model : l0model,
+                l0distFn : l0distFn,
+                l0seqFn : params.l0seqFn,
+                s0inputFn : s0inputFn,
+                rsaAlpha : params.rsaAlpha,
+                rsaWorldPrior : params.rsaWorldPrior,
+                rsaHiddenWorldFn : params.rsaHiddenWorldFn,
+                rsaObservedWorldFn : params.rsaObservedWorldFn,
+                s1distFn : s1distFn
+            };
+        },
+        iterations : params.iterations,
+        gradientSamples : params.gradientSamples,
+        batchSize : params.batchSize,
+        distributionFn : s1distFn
+    };
+
+    var s1model = enc_initTrainedModel(s1Params, D);
+    return s1model;
+};
+
+// s1seq_getDistributionFn
+//
+// s1model : s1 model object constructed by s1inc_initTrainedModel
+//           function above
+//
+// return s1 distribution function that takes s1 beam search output
+// and returns an S1 rsa distribution
+var s1seq_getDistributionFn = function(s1model) {
+    return s1model.modelParams.s1distFn;
+};
+
+// s1seq_getS0Model
+//
+// s1model : s1 model object constructed by s1inc_initTrainedModel
+//           function above
+//
+// return s0 model used in s1
+var s1seq_getS0Model = function(s1model) {
+    return s1model.modelParams.s0model;
+};
+
+// s1seq_getL0Model
+//
+// s1model : s1 model object constructed by s1inc_initTrainedModel
+//           function above
+//
+// return l0 model
+var s1seq_getL0Model = function(s1model) {
+    return s1model.modelParams.l0model;
+};
+
+// s1seq_getMeaningFn
+//
+// s1model : s1 model object constructed by s1inc_initTrainedModel
+//           function above
+//
+// return literal meaning function : utterance x world -> [0, 1]
+var s1seq_getMeaningFn = function(s1model) {
+    var l0model = s1model.modelParams.l0model;
+    var l0distFn = s1model.modelParams.l0distFn;
+    var l0seqFn = s1model.modelParams.l0seqFn;
+    var hiddenWorldFn = s1model.modelParams.rsaHiddenWorldFn;
+    var observedWorldFn = s1model.modelParams.rsaObservedWorldFn;
+
+    return function(utterance, world) {
+        var l0seq = l0seqFn(utterance, hiddenWorldFn(world), observedWorldFn(world));
+        var Dist = enc_modelDistribution(l0model, l0seq, l0distFn);
+        return Math.exp(Dist.score(true));
+    };
+};

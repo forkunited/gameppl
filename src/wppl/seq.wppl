@@ -126,14 +126,54 @@ var seq_decodeDistribution = function(decoder, input, latentState, distributionF
 // distributionFn : decoder output, input, decoder -> Distribution
 // [maybeObserved] : Observation to factor on
 //
-// return sample from distribution given maybeObservation
+// return sample from distribution given maybeObserved
 var seq_decodeSample = function(decoder, input, latentState, distributionFn, maybeObserved) {
     if (decoder.samplingType === SEQ_DECODER_APPROXIMATE_BEAM) {
         var output = _seq_beamDecode(decoder, input, maybeObserved, [latentState]);
-        var Dist = distributionFn(output, input, decoder);
+        var Dist = distributionFn(output, input, decoder, maybeObserved);
         return util_observeHelper(Dist, maybeObserved);
     } else if (decoder.samplingType === SEQ_DECODER_EXACT) {
         return _seq_exactDecodeSample(decoder, input, distributionFn, maybeObserved, latentState);
+    }
+};
+
+// seq_decodeScoredSamples
+//
+// decoder : decoder initialized by seq_initDecoder
+// input : observed input (probably passed through encoder to construct state)
+// latentState : state to decode
+// distributionFn : decoder output, input, decoder -> Distribution
+// n : number of samples
+// [maybeObserved] : Observation to factor on
+// [maybeType] : Unnecessary here
+//
+// return at most n (value, score) samples plus maybeObserved
+var seq_decodeScoredSamples = function(decoder, input, latentState, distributionFn, n, maybeObserved, maybeType) {
+    if (decoder.samplingType === SEQ_DECODER_APPROXIMATE_BEAM) {
+        var output = _seq_beamDecode(decoder, input, maybeObserved, [latentState]);
+        var Dist = distributionFn(output, input, decoder, maybeObserved);
+        var samples = repeat(n, function() { var s = sample(Dist); return { value : s, score : Dist.score(s) }});
+        if (maybeObserved !== undefined) {
+            var samplesObs = samples.concat({
+                value : maybeObserved,
+                score : seq_decodeLL(decoder, maybeObserved, input, latentState, distributionFn)
+            });
+
+            return gameppl.util.removeDuplicateScoredValues(samplesObs, gameppl.util.types.LIST);
+        } else {
+            return gameppl.util.removeDuplicateScoredValues(samples, gameppl.util.types.LIST);
+        }
+    } else if (decoder.samplingType === SEQ_DECODER_EXACT) {
+        var samples = repeat(n, _seq_exactDecodeSample(decoder, input, distributionFn, undefined, latentState));
+        if (maybeObserved !== undefined) {
+            var samplesObs = samples.concat({
+                value : maybeObserved,
+                score : seq_decodeLL(decoder, maybeObserved, input, latentState, distributionFn)});
+
+            return gameppl.util.removeDuplicateScoredValues(samplesObs, gameppl.util.types.LIST);
+        } else {
+            return gameppl.util.removeDuplicateScoredValues(samples, gameppl.util.types.LIST);
+        }
     }
 };
 
@@ -149,7 +189,7 @@ var seq_decodeSample = function(decoder, input, latentState, distributionFn, may
 var seq_decodeLL = function(decoder, output, input, latentState, distributionFn) {
     if (decoder.samplingType === SEQ_DECODER_APPROXIMATE_BEAM) {
         var beamOutput = _seq_beamDecode(decoder, input, undefined, [latentState]);
-        var Dist = distributionFn(beamOutput, input, decoder);
+        var Dist = distributionFn(beamOutput, input, decoder, output);
         return Dist.score(output);
     } else if (decoder.samplingType === SEQ_DECODER_EXACT) {
         return _seq_exactDecodeLL(decoder, output, input, distributionFn, latentState);
@@ -285,7 +325,7 @@ var _seq_exactDecodeSample = function(decoder, input, distributionFn, maybeObser
     var nextStateAndOutputs = stepFn(state, seq, input);
     var nextState = nextStateAndOutputs.state;
 
-    var Dist = distributionFn(nextStateAndOutputs.outputs, input, decoder);
+    var Dist = distributionFn(nextStateAndOutputs.outputs, input, decoder, maybeObserved);
     var nextSym = util_observeHelper(Dist, remainingObs ? remainingObs[0] : undefined);
     var nextSeq = seq.concat([ nextSym ]);
     var nextObs = remainingObs ? remainingObs.slice(1) : undefined;
@@ -311,7 +351,7 @@ var _seq_exactDecodeLL = function(decoder, output, input, distributionFn, maybeS
 
     var nextStateAndOutputs = stepFn(state, seq, input);
     var nextState = nextStateAndOutputs.state;
-    var Dist = distributionFn(nextStateAndOutputs.outputs, input, decoder);
+    var Dist = distributionFn(nextStateAndOutputs.outputs, input, decoder, output);
 
     var nextLL = ll + Dist.score(output[0]);
     var nextSeq = seq.concat([output[0]]);
@@ -341,7 +381,7 @@ var _seq_decodeExpectedIncrement = function(decoder, input, distributionFn, scor
     var nextStateAndOutputs = stepFn(state, seq, input);
     var nextState = nextStateAndOutputs.state;
 
-    var Dist = distributionFn(nextStateAndOutputs.outputs, input, decoder);
+    var Dist = distributionFn(nextStateAndOutputs.outputs, input, decoder, maybeObserved);
 
     var E_score_next = expectation(Dist, function(next) { var nextSeq = seq.concat([next]); return scoreFn(nextSeq); });
 

@@ -106,6 +106,25 @@ var enc_decodeLL = function(decoder, output, input, latentState, distributionFn)
     }
 };
 
+// enc_decodeScoredSamples
+//
+// decoder : decoder initialized by seq_initDecoder
+// input : observed input (probably passed through encoder to construct state)
+// latentState : state to decode
+// distributionFn : decoder output, input, decoder -> Distribution
+// n : number of samples
+// [maybeObserved] : Observation to factor on
+// [maybeType] : Maybe util.type of items in distribution support for distribution returned by distributionFn
+//
+// return at most n (value, score) samples plus maybeObserved
+var enc_decodeScoredSamples = function(decoder, input, latentState, distributionFn, n, maybeObserved, maybeType) {
+    if (decoder.type === ENC_NN) {
+        return nn_decodeScoredSamples(decoder, input, latentState, distributionFn, n, maybeObserved, maybeType);
+    } else if (decoder.type === ENC_SEQ) {
+        return seq_decodeScoredSamples(decoder, input, latentState, distributionFn, n, maybeObserved, maybeType);
+    }
+};
+
 // enc_initModel
 //
 // params :
@@ -168,6 +187,23 @@ var enc_modelSample = function(model, input, distributionFn, maybeObservation) {
     var decoder = model.decoder;
     var latentState = enc_applyEncoder(encoder, input);
     return enc_decodeSample(decoder, input, latentState, distributionFn, maybeObservation);
+};
+
+// enc_modelScoredSamples
+//
+// model : Model object constructed by enc_initModel
+// input : observed input (probably passed through encoder to construct state)
+// distributionFn : decoder output, input, decoder -> Distribution
+// n : number of samples
+// [maybeObserved] : Observation to factor on
+// [maybeType] : Maybe util.type of items in distribution support for distribution returned by distributionFn
+//
+// return at most n (value, score) samples plus maybeObserved
+var enc_modelScoredSamples = function(model, input, distributionFn, n, maybeObserved, maybeType) {
+    var encoder = model.encoder;
+    var decoder = model.decoder;
+    var latentState = enc_applyEncoder(encoder, input);
+    return enc_decodeScoredSamples(decoder, input, latentState, distributionFn, n, maybeObserved, maybeType);
 };
 
 // enc_modelDistribution
@@ -246,15 +282,28 @@ var _enc_initTrainingObj = function(params) {
     return function(data) {
         return function() {
             var modelParamFn = params.modelParamFn;
-            var encoderParamFn = params.encoderParamFn;
-            var decoderParamFn = params.decoderParamFn;
+            var encoderParamFn = (params.encoderParamFn !== undefined) ? params.encoderParamFn : function(modelParams) {
+                    return {
+                        name : "enc_" + params.name,
+                        encoderType : NN_ENCODER_CONSTANT,
+                        constantFn : function(input) { return 1 }
+                    };
+                };
+
+            var decoderParamFn = (params.decoderParamFn !== undefined) ? params.decoderParamFn : function(modelParams) {
+                    return {
+                        name : "dec_" + params.name,
+                        decoderType : NN_DECODER_CONSTANT,
+                        constantFn : function(input) { return 1 }
+                    };
+                };
             var modelParams = (modelParamFn !== undefined) ? modelParamFn() : undefined;
-            var encoderParams = encoderParamFn(modelParams);
+            var encoderParams =  encoderParamFn(modelParams);
             var decoderParams = decoderParamFn(modelParams);
             var model = enc_initModel({
                 modelParams : modelParams,
-                encoderType : params.encoderType,
-                decoderType : params.decoderType,
+                encoderType : (params.encoderType !== undefined) ? params.encoderType : ENC_NN,
+                decoderType : (params.decoderType !== undefined) ? params.decoderType : ENC_NN,
                 encoderParams : encoderParams,
                 decoderParams : decoderParams });
 
