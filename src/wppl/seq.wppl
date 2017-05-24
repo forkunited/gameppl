@@ -151,7 +151,7 @@ var seq_decodeSample = function(decoder, input, latentState, distributionFn, may
 var seq_decodeScoredSamples = function(decoder, input, latentState, distributionFn, n, maybeObserved, maybeType) {
     if (decoder.samplingType === SEQ_DECODER_APPROXIMATE_BEAM) {
         var output = _seq_beamDecode(decoder, input, maybeObserved, [latentState]);
-        var Dist = distributionFn(output, input, decoder, maybeObserved);
+        var Dist = distributionFn(output, input, decoder);
         var samples = repeat(n, function() { var s = sample(Dist); return { value : s, score : Dist.score(s) }});
         if (maybeObserved !== undefined) {
             var samplesObs = samples.concat({
@@ -164,7 +164,11 @@ var seq_decodeScoredSamples = function(decoder, input, latentState, distribution
             return gameppl.util.removeDuplicateScoredValues(samples, gameppl.util.types.LIST);
         }
     } else if (decoder.samplingType === SEQ_DECODER_EXACT) {
-        var samples = repeat(n, _seq_exactDecodeSample(decoder, input, distributionFn, undefined, latentState));
+        var samples = repeat(n, function() { 
+            return _seq_exactDecodeSample(decoder, input, distributionFn, undefined, latentState, undefined, undefined, true);
+            // var score = seq_decodeLL(decoder, value, input, latentState, distributionFn);
+            // return { value : value, score : score };
+        });
         if (maybeObserved !== undefined) {
             var samplesObs = samples.concat({
                 value : maybeObserved,
@@ -312,29 +316,31 @@ var _seq_beamDecode = function(decoder, input, maybeObserved, maybeStates, maybe
 // _seq_exactDecodeSample
 //
 // Private function used by seq_decodeSample
-var _seq_exactDecodeSample = function(decoder, input, distributionFn, maybeObserved, maybeState, maybeSeq, maybeK) {
+var _seq_exactDecodeSample = function(decoder, input, distributionFn, maybeObserved, maybeState, maybeSeq, maybeK, maybeScored) {
     if (maybeObserved && maybeObserved.length > 0 && maybeObserved[0] === decoder.startSymbol)
-        return _seq_exactDecodeSample(decoder, input, distributionFn, maybeObserved.slice(1), maybeState, maybeSeq, maybeK);
+        return _seq_exactDecodeSample(decoder, input, distributionFn, maybeObserved.slice(1), maybeState, maybeSeq, maybeK, maybeScored);
 
     var state = maybeState || decoder.initialState;
-    var seq = maybeSeq || [decoder.startSymbol];
+    var seq = maybeSeq || ((maybeScored) ? { value : [decoder.startSymbol], score : 0.0 }  : [decoder.startSymbol]);
     var remainingObs = maybeObserved;
     var k = maybeK || decoder.maxLength;
     var stepFn = decoder.stepFn;
 
     var nextStateAndOutputs = stepFn(state, seq, input);
     var nextState = nextStateAndOutputs.state;
-
+    
     var Dist = distributionFn(nextStateAndOutputs.outputs, input, decoder, maybeObserved);
+    
     var nextSym = util_observeHelper(Dist, remainingObs ? remainingObs[0] : undefined);
-    var nextSeq = seq.concat([ nextSym ]);
+    var nextSeq = (maybeScored) ? { value : seq.value.concat([nextSym]), score : seq.score + Dist.score(nextSym) } : seq.concat([ nextSym ]);
     var nextObs = remainingObs ? remainingObs.slice(1) : undefined;
     if (decoder.maxLength <= 1 || k === 1 || nextSym === decoder.terminalSymbol ) {
         return nextSeq;
     } else {
-        return _seq_exactDecodeSample(decoder, input, distributionFn, nextObs, nextState, nextSeq, k-1);
+        return _seq_exactDecodeSample(decoder, input, distributionFn, nextObs, nextState, nextSeq, k-1, maybeScored);
     }
 };
+
 
 // _seq_exactDecodeLL
 //
@@ -355,9 +361,9 @@ var _seq_exactDecodeLL = function(decoder, output, input, distributionFn, maybeS
 
     var nextLL = ll + Dist.score(output[0]);
     var nextSeq = seq.concat([output[0]]);
-    if (output[0] === decoder.terminalSymbol) {
+    if (output[0] === decoder.terminalSymbol || k == 1) {
         return nextLL;
-    } else if (decoder.maxLength <= 1 || k === 1) {
+    } else if (decoder.maxLength <= 1) { // FIXME : k==1 should also possibly be undefined
         return undefined;
     } else {
         return _seq_exactDecodeLL(decoder, output.slice(1), input, distributionFn, nextState, nextSeq, k-1, nextLL);

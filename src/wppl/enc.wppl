@@ -119,9 +119,9 @@ var enc_decodeLL = function(decoder, output, input, latentState, distributionFn)
 // return at most n (value, score) samples plus maybeObserved
 var enc_decodeScoredSamples = function(decoder, input, latentState, distributionFn, n, maybeObserved, maybeType) {
     if (decoder.type === ENC_NN) {
-        return nn_decodeScoredSamples(decoder, input, latentState, distributionFn, n, maybeObserved, maybeType);
+        return nn_decodeScoredSamples(decoder.obj, input, latentState, distributionFn, n, maybeObserved, maybeType);
     } else if (decoder.type === ENC_SEQ) {
-        return seq_decodeScoredSamples(decoder, input, latentState, distributionFn, n, maybeObserved, maybeType);
+        return seq_decodeScoredSamples(decoder.obj, input, latentState, distributionFn, n, maybeObserved, maybeType);
     }
 };
 
@@ -300,6 +300,7 @@ var _enc_initTrainingObj = function(params) {
             var modelParams = (modelParamFn !== undefined) ? modelParamFn() : undefined;
             var encoderParams =  encoderParamFn(modelParams);
             var decoderParams = decoderParamFn(modelParams);
+            
             var model = enc_initModel({
                 modelParams : modelParams,
                 encoderType : (params.encoderType !== undefined) ? params.encoderType : ENC_NN,

@@ -145,10 +145,11 @@ var nn_applyDecoder = function(decoder, input, latentState) {
 // input : observed input (probably passed through encoder to construct state)
 // latentState : State to decode
 // distributionFn : decoder output, input, decoder -> Distribution
+// [maybeObservation] : Observation to factor on
 //
 // return distribution object constructed from decoder
-var nn_decodeDistribution = function(decoder, input, latentState, distributionFn) {
-    return distributionFn(nn_applyDecoder(decoder, input, latentState), input, decoder);
+var nn_decodeDistribution = function(decoder, input, latentState, distributionFn, maybeObservation) {
+    return distributionFn(nn_applyDecoder(decoder, input, latentState), input, decoder, maybeObservation);
 };
 
 // nn_decodeLL

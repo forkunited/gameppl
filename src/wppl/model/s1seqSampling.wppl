@@ -1,15 +1,15 @@
-// s1seq.wppl
+// s1seqSampling.wppl
 //
 // Represents a RSA S1 sequence learning model
 // (Beam searched S0 used for utterance prior)
 
-// _initS1DistFn
+// _s1seqSampling_initS1DistFn
 //
 // Private function for constructing function that takes
 // s0 encoder/decoder beam search output and constructs an
 // rsa S1 distribution using the output for the utterance
 // prior
-var _initS1DistFn = function(initParams) {
+var _s1seqSampling_initS1DistFn = function(initParams) {
     var worldPrior = initParams.rsaWorldPrior;
     var hiddenWorldFn = initParams.rsaHiddenWorldFn;
     var observedWorldFn = initParams.rsaObservedWorldFn;
@@ -22,7 +22,6 @@ var _initS1DistFn = function(initParams) {
         var l0distFn = params.l0distFn;
         var s0model = params.s0model;
         var s0inputFn = params.s0inputFn;
-
         var s0output = enc_modelScoredSamples(s0model, s0inputFn(world), util_objCategorical, s0sampleSize, maybeObserved);
 
         var rsaParams = {
@@ -45,7 +44,7 @@ var _initS1DistFn = function(initParams) {
     }
 };
 
-// s1seq_initTrainedModel
+// s1seqSampling_initTrainedModel
 //
 // params:
 //   maxUtteranceLength : Maximum length for decoded utterances
@@ -68,7 +67,7 @@ var _initS1DistFn = function(initParams) {
 // D : Data
 //
 // return trained s1 sequential model
-var s1seq_initTrainedModel = function(params, D) {
+var s1seqSampling_initTrainedModel = function(params, D) {
     // S0 model
     var s0Params = {
         encoderType : ENC_NN,
@@ -140,7 +139,7 @@ var s1seq_initTrainedModel = function(params, D) {
 
     /* S1 */
 
-    var s1distFn = _initS1DistFn(params);
+    var s1distFn = _s1seqSampling_initS1DistFn(params);
 
     var s1Params = {
         name : "S1",
@@ -174,44 +173,44 @@ var s1seq_initTrainedModel = function(params, D) {
     return s1model;
 };
 
-// s1seq_getDistributionFn
+// s1seqSampling_getDistributionFn
 //
 // s1model : s1 model object constructed by s1inc_initTrainedModel
 //           function above
 //
 // return s1 distribution function that takes s1 beam search output
 // and returns an S1 rsa distribution
-var s1seq_getDistributionFn = function(s1model) {
+var s1seqSampling_getDistributionFn = function(s1model) {
     return s1model.modelParams.s1distFn;
 };
 
-// s1seq_getS0Model
+// s1seqSampling_getS0Model
 //
 // s1model : s1 model object constructed by s1inc_initTrainedModel
 //           function above
 //
 // return s0 model used in s1
-var s1seq_getS0Model = function(s1model) {
+var s1seqSampling_getS0Model = function(s1model) {
     return s1model.modelParams.s0model;
 };
 
-// s1seq_getL0Model
+// s1seqSampling_getL0Model
 //
 // s1model : s1 model object constructed by s1inc_initTrainedModel
 //           function above
 //
 // return l0 model
-var s1seq_getL0Model = function(s1model) {
+var s1seqSampling_getL0Model = function(s1model) {
     return s1model.modelParams.l0model;
 };
 
-// s1seq_getMeaningFn
+// s1seqSampling_getMeaningFn
 //
 // s1model : s1 model object constructed by s1inc_initTrainedModel
 //           function above
 //
 // return literal meaning function : utterance x world -> [0, 1]
-var s1seq_getMeaningFn = function(s1model) {
+var s1seqSampling_getMeaningFn = function(s1model) {
     var l0model = s1model.modelParams.l0model;
     var l0distFn = s1model.modelParams.l0distFn;
     var l0seqFn = s1model.modelParams.l0seqFn;
@@ -224,3 +223,4 @@ var s1seq_getMeaningFn = function(s1model) {
         return Math.exp(Dist.score(true));
     };
 };
+

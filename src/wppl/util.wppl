@@ -291,9 +291,9 @@ var util_observeHelper = function(Dist, val) {
         factor(Dist.score(val));
         return val;
     } else {
-        return sample(dist, {
+        return sample(Dist, {
             guide: function() {
-                return dist; // prevent auto-guide in Forward; always use model dist
+                return Dist; // prevent auto-guide in Forward; always use model dist
             }
         });
     }
