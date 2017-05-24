@@ -70,6 +70,21 @@ var evaluation_modelEncLL = function(model, D, distributionFn) {
     }, aggs);
 };
 
+var evaluation_modelMeaningExpectedIncrement = function(meaningFn, D, s_model, maybeS_inputFn) {
+    var incEval = gameppl.util.listExpectation(map(function (datum) {
+        var scoreFn = function (utterance) {
+            return meaningFn(utterance, datum.input);
+        };
+
+        return enc_modelExpectedIncrement(s_model,
+            (maybeS_inputFn !== undefined) ? maybeS_inputFn(datum.input, datum.output) : undefined,
+            util_objCategorical, scoreFn,
+            datum.output);
+    }, D));
+
+    return { inc : _.object(mapIndexed(function(index, value) { [index, value] }, incEval)) };
+}
+
 // evaluation_modelEncEvalFlattened
 //
 // evals : Evaluations output from evaluation_modelEncLL

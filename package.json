@@ -5,10 +5,12 @@
   "main": "src/js/library.js",
   "webppl": {
     "wppl": [
+      "src/wppl/model/s.wppl",
       "src/wppl/model/s1inc.wppl",
       "src/wppl/model/s1seq.wppl",
       "src/wppl/model/s1seqSampling.wppl",
       "src/wppl/model/l0seq.wppl",
+      "src/wppl/model/l1seqSampling.wppl",
       "src/wppl/data.wppl",
       "src/wppl/enc.wppl",
       "src/wppl/evaluation.wppl",

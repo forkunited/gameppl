@@ -14,7 +14,7 @@ var RSA_All = "All";
 // params:
 //    cacheSize : memoization cache size
 //    parametersPrior : Samples raised parameters given observation
-//    utterancePrior : Samples utterance given observation and parameters
+//    utterancePrior : Samples utterance given observation and parameters and optionally the world
 //    worldPrior : Samples world given observation and parameters
 //    denotationDistFn: utterance x world x parameters -> Distribution with support {false, true}
 //    alpha : Speaker rationality
@@ -54,7 +54,7 @@ var makeRSA = function(params, dist, level) {
 
     var _S1 = cache(function (world, observation, parameters) {
         return Infer(inferParams, function () {
-            var utterance = utterancePrior(observation, parameters);
+            var utterance = utterancePrior(observation, parameters, world);
             var L_up = _L0(utterance, observation, parameters);
             factor(params.alpha * L_up.score(world));
             return utterance;
@@ -73,7 +73,7 @@ var makeRSA = function(params, dist, level) {
 
     var _S2 = cache(function (world, observation, parameters) {
         return Infer(inferParams, function () {
-            var utterance = utterancePrior(observation, parameters);
+            var utterance = utterancePrior(observation, parameters, world);
             var L_up = _L1(utterance, observation, parameters);
             factor(params.alpha * L_up.score(world));
             return utterance;
@@ -92,7 +92,7 @@ var makeRSA = function(params, dist, level) {
 
     var _S3 = cache(function (world, observation, parameters) {
         return Infer(inferParams, function () {
-            var utterance = utterancePrior(observation, parameters);
+            var utterance = utterancePrior(observation, parameters, world);
             var L_up = _L2(utterance, observation, parameters);
             factor(params.alpha * L_up.score(world));
             return utterance;
@@ -134,7 +134,7 @@ var makeRSA = function(params, dist, level) {
                 var S = cache(function(world, observation) {
                     return Infer(inferParams, function() {
                         var parameters = parametersPrior(observation, RSA_S, l);
-                        var utterance = utterancePrior(observation, parameters);
+                        var utterance = utterancePrior(observation, parameters, world);
                         var _L = _dists[l - 1].L;
                         // Note: listener does not receive speaker's parameters
                         // Top-level listener always chooses the interpretation

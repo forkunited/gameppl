@@ -1,0 +1,64 @@
+// s.wppl
+//
+// Represents a language model (who goes by "s")
+
+// s_initTrainedModel
+//
+// params:
+//   maxUtteranceLength : Maximum length for decoded utterances
+//   utteranceDimension : Size of utterance token vectors
+//   latentDimension : Size of hidden layer (must be even)
+//   beamSize : Beam size for beam search
+//   iterations : Training iterations
+//   gradientSamples : Training gradient samples
+//   batchSize : Training batch size,
+// D : Data
+//
+// return trained s language model
+var s_initTrainedModel = function(params, D) {
+    // Language model
+    var sParams = {
+        encoderType : ENC_NN,
+        decoderType : ENC_SEQ,
+        modelParamFn : function() {
+            return { distFn : util_objCategorical }
+        },
+        encoderParamFn : function() {
+            return {
+                name : "enc_S",
+                inputDimension : 0,
+                encoderType : NN_ENCODER_CONSTANT,
+                latentDimension : params.latentDimension
+            };
+        },
+        decoderParamFn : function() {
+            return {
+                name : "dec_S",
+                latentDimension : params.latentDimension,
+                outputDimension : params.utteranceDimension,
+                initStepFn : nn_initSequenceDecoderStep,
+                startSymbol : gameppl.feature.symbols.START_SYMBOL,
+                terminalSymbol : gameppl.feature.symbols.TERMINAL_SYMBOL,
+                maxLength : params.maxUtteranceLength,
+                samplingType : SEQ_DECODER_EXACT,
+                approximationBeamSize : params.beamSize
+            };
+        },
+        iterations : params.iterations,
+        gradientSamples : params.gradientSamples,
+        batchSize : params.batchSize,
+        distributionFn : util_objCategorical
+    };
+
+    return enc_initTrainedModel(sParams, D);
+};
+
+// s_getDistributionFn
+//
+// s_model : s model object constructed by s_initTrainedModel
+//           function above
+//
+// return s distribution function
+var s_getDistributionFn = function(s_model) {
+    return s_model.modelParams.distFn;
+};

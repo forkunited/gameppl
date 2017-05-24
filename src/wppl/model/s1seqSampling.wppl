@@ -1,14 +1,12 @@
 // s1seqSampling.wppl
 //
 // Represents a RSA S1 sequence learning model
-// (Beam searched S0 used for utterance prior)
+// (Sampling S0 used for utterance prior)
 
 // _s1seqSampling_initS1DistFn
 //
-// Private function for constructing function that takes
-// s0 encoder/decoder beam search output and constructs an
-// rsa S1 distribution using the output for the utterance
-// prior
+// Private function for constructing function that constructs an
+// rsa S1 distribution
 var _s1seqSampling_initS1DistFn = function(initParams) {
     var worldPrior = initParams.rsaWorldPrior;
     var hiddenWorldFn = initParams.rsaHiddenWorldFn;

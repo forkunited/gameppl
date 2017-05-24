@@ -98,6 +98,19 @@ var l0seq_initTrainedModel = function(params, D) {
     return l0model;
 };
 
+// l0seq_getL1DistributionFn
+//
+// l0model : l0 model object constructed by l0inc_initTrainedModel
+//           function above
+//
+// return l1 distribution function that returns an L1 rsa distribution
+// using the l0 model
+var l0seq_getL1DistributionFn = function(l0model) {
+    return function(l1fillerOutput, input, modelParams) {
+        /* FIXME */
+    };
+};
+
 // l0seq_getDistributionFn
 //
 // l0model : l0 model object constructed by l0inc_initTrainedModel
