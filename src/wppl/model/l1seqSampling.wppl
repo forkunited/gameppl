@@ -63,8 +63,8 @@ var _l1seqSampling_initL1DistFn = function(initParams) {
 //   s0inputFn : observation x hidden -> input to s0 encoder
 //   rsaAlpha : Speaker rationality
 //   rsaWorldPrior : observed world -> sample of hidden world
-//   rsaHiddenWorldFn : world -> part of world hidden from listener
-//   rsaObservedWorldFn : world -> part of world observed by listener
+//   rsaUtteranceFn : datum.input -> utterance
+//   rsaObservedWorldFn : datum.input -> part of world observed by listener
 // D : Data
 //
 // return trained l1 sequential model
@@ -155,7 +155,6 @@ var l1seqSampling_initTrainedModel = function(params, D) {
                 s0inputFn : s0inputFn,
                 rsaAlpha : params.rsaAlpha,
                 rsaWorldPrior : params.rsaWorldPrior,
-                rsaHiddenWorldFn : params.rsaHiddenWorldFn,
                 rsaObservedWorldFn : params.rsaObservedWorldFn,
                 l1distFn : l1distFn
             };
@@ -238,16 +237,14 @@ var l1seqSampling_getL0DistributionFn = function(l1model) {
 // l1model : l1 model object constructed by l1seqSampling_initTrainedModel
 //           function above
 //
-// return literal meaning function : utterance x world -> [0, 1]
+// return literal meaning function : utterance x hidden x observation -> [0, 1]
 var l1seqSampling_getMeaningFn = function(l1model) {
     var meaningModel = l1model.modelParams.meaningModel;
     var meaningDistFn = l1model.modelParams.meaningDistFn;
     var meaningSeqFn = l1model.modelParams.meaningSeqFn;
-    var hiddenWorldFn = l1model.modelParams.rsaHiddenWorldFn;
-    var observedWorldFn = l1model.modelParams.rsaObservedWorldFn;
 
-    return function(utterance, world) {
-        var meaningSeq = meaningSeqFn(utterance, hiddenWorldFn(world), observedWorldFn(world));
+    return function(utterance, hidden, observation) {
+        var meaningSeq = meaningSeqFn(utterance, hidden, observation);
         var Dist = enc_modelDistribution(meaningModel, meaningSeq, meaningDistFn);
         return Math.exp(Dist.score(true));
     };

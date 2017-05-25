@@ -100,3 +100,17 @@ var evaluation_modelEncEvalFlattened = function(evals, maybePrefix) {
     
     return _.unzip(sort(keyValuePairs, lt, function(kvPair) { return kvPair[0] }));
 };
+
+// evaluation_flattenedStrings
+//
+// flats : Outputs from evaluation_modelEncEvalFlattened
+//
+// return [key string, valueString]
+var evaluation_flattenedKeyValueStrings = function(flats) {
+    var flatStrs = map(function(flat) {
+        return [flat[0].join("\t"), flat[1].join("\t")];
+    }, flats);
+
+    var keysValues = _.unzip(flatStrs);
+    return [keysValues[0].join("\t"), keysValues[1].join("\t")]
+};
