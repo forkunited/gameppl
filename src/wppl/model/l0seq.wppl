@@ -2,8 +2,6 @@
 //
 // Represents a sequential RSA L0 sequence learning model
 
-
-
 // l0seq_initTrainedModel
 //
 // params:
@@ -85,7 +83,9 @@ var l0seq_initTrainedModel = function(params, D) {
                 rsaWorldPrior : params.rsaWorldPrior,
                 rsaUtteranceFn : params.rsaUtteranceFn,
                 rsaObservedWorldFn : params.rsaObservedWorldFn,
-                l0distFn : l0distFn
+                l0distFn : l0distFn,
+                latentDimension : params.latentDimension,
+                utteranceDimension : params.utteranceDimension
             };
         },
         iterations : params.iterations,
@@ -98,17 +98,114 @@ var l0seq_initTrainedModel = function(params, D) {
     return l0model;
 };
 
-// l0seq_getL1DistributionFn
+// l0seq_initL1DistributionFn
 //
 // l0model : l0 model object constructed by l0inc_initTrainedModel
 //           function above
+// initParams:
+//     s0inputFn
+//     alpha
+//     s0sampleSize
+//     s0inputDimension
+//     iterations
+//     gradientSamples
+//     batchSize
+//     approximationBeamSize
+//     maxUtteranceLength
 //
 // return l1 distribution function that returns an L1 rsa distribution
 // using the l0 model
-var l0seq_getL1DistributionFn = function(l0model) {
-    return function(l1fillerOutput, input, modelParams) {
-        /* FIXME */
+var l0seq_initL1DistributionFn = function(l0model, initParams) {
+    var s0inputFn = initParams.s0inputFn;
+    var alpha = initParams.rsaAlpha;
+    var s0sampleSize = initParams.s0sampleSize;
+    var s0inputDimension = initParams.s0inputDimension;
+    var iterations = initParams.iterations;
+    var gradientSamples = initParams.gradientSamples;
+    var batchSize = initParams.batchSize;
+    var beamSize = initParams.approximationBeamSize;
+    var maxUtteranceLength = initParams.maxUtteranceLength;
+
+    var worldPriorSupport = _.keys(gameppl.dist.distToObject(Infer({method:'enumerate'}, l0model.modelParams.rsaWorldPrior)));
+
+    // S0 model
+    var s0Params = {
+        encoderType : ENC_NN,
+        decoderType : ENC_SEQ,
+        encoderParamFn : function() {
+            return {
+                name : "enc_S0",
+                inputDimension : s0inputDimension,
+                encoderType : NN_ENCODER_TANH,
+                latentDimension : l0model.modelParams.latentDimension
+            };
+        },
+        decoderParamFn : function() {
+            return {
+                name : "dec_S0",
+                latentDimension : l0model.modelParams.latentDimension,
+                outputDimension : l0model.modelParams.utteranceDimension,
+                initStepFn : nn_initSequenceDecoderStep,
+                startSymbol : gameppl.feature.symbols.START_SYMBOL,
+                terminalSymbol : gameppl.feature.symbols.TERMINAL_SYMBOL,
+                maxLength : maxUtteranceLength,
+                samplingType : SEQ_DECODER_EXACT,
+                approximationBeamSize : beamSize
+            };
+        },
+        iterations : iterations,
+        gradientSamples : gradientSamples,
+        batchSize : batchSize,
+        distributionFn : util_objCategorical
     };
+
+    var rsaObservedWorldFn = params.rsaObservedWorldFn;
+    var rsaUtteranceFn = params.rsaUtteranceFn;
+    var s0inputFn = params.s0inputFn;
+    var s0model = enc_initTrainedModel(s0Params,
+        map(function(datum) {
+            var new_d = mapObject(function (key, value) {
+                if (key === 'input')
+                    return s0inputFn(rsaObservedWorldFn(value), datum.output)
+                else if (key == 'output')
+                    return rsaUtteranceFn(datum.input)
+                else
+                    return value
+            }, datum);
+            return new_d;
+        }, D)
+    ); // Applies s0inputFn to data set before training s0
+
+    return function(l1FillerOutput, input, params, maybeObserved) {
+        var meaningModel = params.meaningModel;
+        var meaningDistFn = params.meaningDistFn;
+        var meaningSeqFn = params.seqFn; // utterance x hidden x observation -> meaning input vector sequence
+        var worldPrior = params.rsaWorldPrior;
+        var utteranceFn = params.rsaUtteranceFn;
+        var observedWorldFn = params.rsaObservedWorldFn;
+
+        var observation = observedWorldFn(input);
+        var utterance = utteranceFn(input);
+
+        var s0dists = _.fromPairs(map(function(hidden) {
+            return [hidden, util_objSoftmaxCategorical(enc_modelScoredSamples(s0model, s0inputFn(observation, hidden), util_objCategorical, s0sampleSize, utterance))]
+        }, worldPriorSupport));
+
+        var rsaParams = {
+            cacheSize: 100,
+            alpha: alpha,
+            parametersPrior: function(observation) { return observation },
+            utterancePrior: function(observation, parameters, hidden) { sample(s0dists[hidden]); },
+            worldPrior: worldPrior,
+            denotationDistFn: function(utterance, hidden, parameters) {
+                var meaningSeq = meaningSeqFn(utterance, hidden, parameters);
+                return enc_modelDistribution(meaningModel, meaningSeq, meaningDistFn);
+            }
+        };
+
+        var L1 = makeRSA(rsaParams, RSA_L, 1);
+        return L1(utterance, observation);
+    }
 };
 
 // l0seq_getDistributionFn
