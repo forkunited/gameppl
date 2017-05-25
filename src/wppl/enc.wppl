@@ -300,7 +300,7 @@ var _enc_initTrainingObj = function(params) {
             var modelParams = (modelParamFn !== undefined) ? modelParamFn() : undefined;
             var encoderParams =  encoderParamFn(modelParams);
             var decoderParams = decoderParamFn(modelParams);
-            
+    
             var model = enc_initModel({
                 modelParams : modelParams,
                 encoderType : (params.encoderType !== undefined) ? params.encoderType : ENC_NN,
