@@ -53,6 +53,7 @@ var _s1seqSampling_initS1DistFn = function(initParams) {
 //   latentDimension : Size of hidden layer (must be even)
 //   s0sampleSize : Number of samples to take from s0 for utterance prior
 //   iterations : Training iterations
+//   sIterations : Training iterations for internal s models
 //   gradientSamples : Training gradient samples
 //   batchSize : Training batch size,
 //   l0seqFn : utterance x hidden x observation -> l0 input vector sequence
@@ -91,7 +92,7 @@ var s1seqSampling_initTrainedModel = function(params, D) {
                 approximationBeamSize : params.beamSize
             };
         },
-        iterations : params.iterations,
+        iterations : params.sIterations,
         gradientSamples : params.gradientSamples,
         batchSize : params.batchSize,
         distributionFn : util_objCategorical

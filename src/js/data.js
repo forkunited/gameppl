@@ -14,8 +14,15 @@ var getDatumGameRound = function(d) {
     return d.game + "_" + d.round;
 };
 
+var makeDatumInfoIndicator = function(field, value) {
+    return function(datum) {
+        return datum.info[field] === value;
+    }
+};
+
 module.exports = {
     getDatumGame : getDatumGame,
     getDatumRound : getDatumRound,
-    getDatumGameRound : getDatumGameRound
+    getDatumGameRound : getDatumGameRound,
+    makeDatumInfoIndicator : makeDatumInfoIndicator
 };

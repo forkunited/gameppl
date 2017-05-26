@@ -47,27 +47,39 @@ var evaluation_modelEncModeAccuracy = function(model, D, distributionFn) {
 // D : data set containing (input,output) datums
 // distributionFn : function that takes encoder/decoder model output
 // and produces a distribution
+// hideNegs : Hide output proportion of examples with -Inf or undefined ll
 //
 // return log-likelihood of data in D according to encoder/decoder model
 // with distributions constructed through distributionFn
-var evaluation_modelEncLL = function(model, D, distributionFn) {
+var evaluation_modelEncLL = function(model, D, distributionFn, hideNegs) {
     var makeInfoKey = function(d) { return (d.info) ? _.join(_.values(d.info), ".") : undefined };
 
     var lls = map(function(d) { return { key : makeInfoKey(d), value : enc_modelLL(model, d.output, d.input, distributionFn) } }, D);
     var aggs = gameppl.util.aggregateKeyValuePairs(lls);
-    return mapObject(function(agg, agglls) {
-        return {
-            ll: listMean(map(function (ll) {
-                ll !== -Infinity && ll !== undefined ? ll : 0.0
-            }, agglls)),
-            neg: listMean(map(function (ll) {
-                ll === -Infinity ? 1.0 : 0.0
-            }, agglls)),
-            undef: listMean(map(function (ll) {
-                ll === undefined ? 1.0 : 0.0
-            }, agglls))
-        };
-    }, aggs);
+
+    if (hideNegs) {
+        return mapObject(function (agg, agglls) {
+            return {
+                ll: listMean(map(function (ll) {
+                    ll !== -Infinity && ll !== undefined ? ll : 0.0
+                }, agglls))
+            };
+        }, aggs);
+    } else {
+        return mapObject(function (agg, agglls) {
+            return {
+                ll: listMean(map(function (ll) {
+                    ll !== -Infinity && ll !== undefined ? ll : 0.0
+                }, agglls)),
+                neg: listMean(map(function (ll) {
+                    ll === -Infinity ? 1.0 : 0.0
+                }, agglls)),
+                undef: listMean(map(function (ll) {
+                    ll === undefined ? 1.0 : 0.0
+                }, agglls))
+            };
+        }, aggs);
+    }
 };
 
 var evaluation_modelMeaningExpectedIncrement = function(makeScoreFn, D, s_model, maybeS_inputFn) {
