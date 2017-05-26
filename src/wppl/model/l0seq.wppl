@@ -104,7 +104,7 @@ var l0seq_initTrainedModel = function(params, D) {
 //           function above
 // initParams:
 //     s0inputFn
-//     alpha
+//     rsaAlpha
 //     s0sampleSize
 //     s0inputDimension
 //     iterations
@@ -113,9 +113,11 @@ var l0seq_initTrainedModel = function(params, D) {
 //     approximationBeamSize
 //     maxUtteranceLength
 //
+// D : data for training s0
+//
 // return l1 distribution function that returns an L1 rsa distribution
 // using the l0 model
-var l0seq_initL1DistributionFn = function(l0model, initParams) {
+var l0seq_initL1DistributionFn = function(l0model, initParams, D) {
     var s0inputFn = initParams.s0inputFn;
     var alpha = initParams.rsaAlpha;
     var s0sampleSize = initParams.s0sampleSize;
@@ -159,9 +161,8 @@ var l0seq_initL1DistributionFn = function(l0model, initParams) {
         distributionFn : util_objCategorical
     };
 
-    var rsaObservedWorldFn = params.rsaObservedWorldFn;
-    var rsaUtteranceFn = params.rsaUtteranceFn;
-    var s0inputFn = params.s0inputFn;
+    var rsaObservedWorldFn = l0model.modelParams.rsaObservedWorldFn;
+    var rsaUtteranceFn = l0model.modelParams.rsaUtteranceFn;
     var s0model = enc_initTrainedModel(s0Params,
         map(function(datum) {
             var new_d = mapObject(function (key, value) {
@@ -172,6 +173,7 @@ var l0seq_initL1DistributionFn = function(l0model, initParams) {
                 else
                     return value
             }, datum);
+
             return new_d;
         }, D)
     ); // Applies s0inputFn to data set before training s0
@@ -223,15 +225,15 @@ var l0seq_getDistributionFn = function(l0model) {
 // l0model : l0 model object constructed by l0seq_initTrainedModel
 //           function above
 //
-// return literal meaning function : utterance x world -> [0, 1]
+// return literal meaning function : utterance x hidden x observation -> [0, 1]
 var l0seq_getMeaningFn = function(l0model) {
     var meaningModel = l0model.modelParams.meaningModel;
     var meaningDistFn = l0model.modelParams.meaningDistFn;
     var seqFn = l0model.modelParams.seqFn;
     var observedWorldFn = l0model.modelParams.rsaObservedWorldFn;
 
-    return function(utterance, world) {
-        var seq = seqFn(utterance, hiddenWorldFn(world), observedWorldFn(world));
+    return function(utterance, hidden, observation) {
+        var seq = seqFn(utterance, hidden, observation);
         var Dist = enc_modelDistribution(meaningModel, seq, meaningDistFn);
         return Math.exp(Dist.score(true));
     };
