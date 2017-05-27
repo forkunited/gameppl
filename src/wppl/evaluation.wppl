@@ -41,6 +41,36 @@ var evaluation_modelEncModeAccuracy = function(model, D, distributionFn) {
     }, aggs);
 };
 
+// evaluation_modelEncModeAccuracyGrungyData
+//
+// model : encoder/decoder model represented by code in enc.wppl
+// D : data set containing (input,output) datums
+// makeDistributionFn : function that takes a model and a datum and produces a distributionFn
+// outputFn : datum -> target output for which to evaluate accuracy
+//
+// return accuracy on data in D for encoder/decoder model
+// with distributions constructed through distributionFn
+var evaluation_modelEncModeAccuracyGrungyData = function(model, D, makeDistributionFn, outputFn) {
+    var makeInfoKey = function(d) { return (d.info) ? _.join(_.values(d.info), ".") : undefined };
+
+    var correctIndicators = map(function(d) {
+        var distributionFn = makeDistributionFn(model, d);
+        var modes = enc_modelModes(model, d.input, distributionFn);
+        var output = outputFn(d);
+        var correct = any(function(mode) { mode === output.toString() }, modes) ? 1.0 : 0.0 ;
+
+        return { key : makeInfoKey(d), value : correct }
+    }, D);
+
+    var aggs = gameppl.util.aggregateKeyValuePairs(correctIndicators);
+
+    return mapObject(function(agg, aggIndicators) {
+        return {
+            acc : listMean(aggIndicators)
+        };
+    }, aggs);
+};
+
 // evaluation_modelEncLL
 //
 // model : encoder/decoder model represented by code in enc.wppl

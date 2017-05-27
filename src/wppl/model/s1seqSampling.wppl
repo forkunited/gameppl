@@ -155,6 +155,7 @@ var s1seqSampling_initTrainedModel = function(params, D) {
                 l0distFn : l0distFn,
                 l0seqFn : params.l0seqFn,
                 s0inputFn : s0inputFn,
+                s0sampleSize : s0sampleSize,
                 rsaAlpha : params.rsaAlpha,
                 rsaWorldPrior : params.rsaWorldPrior,
                 rsaHiddenWorldFn : params.rsaHiddenWorldFn,
@@ -223,3 +224,79 @@ var s1seqSampling_getMeaningFn = function(s1model) {
     };
 };
 
+// s1seqSampling_getL1DistributionFn
+//
+// s1model : s1 model object constructed by l1seqSampling_initTrainedModel
+//           function above
+//
+// datum : Datum from which to pull utterance for which the function will constuct a distribution
+//
+// return l1 distribution function that returns an L1 rsa distribution
+// using the s1 model
+var s1seqSampling_getL1DistributionFn = function(s1model, datum) {
+    return function (s1fillerOutput, input, modelParams) {
+        var observedWorldFn = modelParams.rsaObservedWorldFn;
+        var worldPrior = modelParams.rsaWorldPrior;
+        var alpha = modelParams.rsaAlpha;
+        var l0seqFn = modelParams.l0seqFn;
+        var l0model = modelParams.l0model;
+        var l0distFn = modelParams.l0distFn;
+        var s0model = modelParams.s0model;
+        var s0inputFn = modelParams.s0inputFn;
+        var s0sampleSize = modelParams.s0sampleSize;
+
+        var s0output = enc_modelScoredSamples(s0model, s0inputFn(input), util_objCategorical, s0sampleSize);
+
+        var rsaParams = {
+            cacheSize: 100,
+            alpha: alpha,
+            parametersPrior: function(observation) { return observation },
+            utterancePrior: function(observation, parameters) { sample(util_objSoftmaxCategorical(s0output)); },
+            worldPrior: worldPrior,
+            denotationDistFn: function(utterance, hidden, parameters) {
+                var l0seq = l0seqFn(utterance, hidden, parameters);
+                return enc_modelDistribution(l0model, l0seq, l0distFn);
+            }
+        };
+
+        var L1 = makeRSA(rsaParams, RSA_L, 1);
+        var observation = observedWorldFn(input);
+        var utterance = datum.output;
+        return L1(utterance, observation);
+    };
+};
+
+// s1seqSampling_getL0DistributionFn
+//
+// s1model : s1 model object constructed by l1seqSampling_initTrainedModel
+//           function above
+//
+// datum : Datum from which to pull utterance for which the function will constuct a distribution
+//
+// return l1 distribution function that returns an L1 rsa distribution
+// using the s1 model
+var s1seqSampling_getL0DistributionFn = function(s1model, datum) {
+    return function (s1fillerOutput, input, modelParams) {
+        var observedWorldFn = modelParams.rsaObservedWorldFn;
+        var worldPrior = modelParams.rsaWorldPrior;
+
+        var l0seqFn = modelParams.l0seqFn;
+        var l0model = modelParams.l0model;
+        var l0distFn = modelParams.l0distFn;
+
+        var rsaParams = {
+            cacheSize: 100,
+            parametersPrior: function(observation) { return observation },
+            worldPrior: worldPrior,
+            denotationDistFn: function(utterance, hidden, parameters) {
+                var l0seq = l0seqFn(utterance, hidden, parameters);
+                return enc_modelDistribution(l0model, l0seq, l0distFn);
+            }
+        };
+
+        var L0 = makeRSA(rsaParams, RSA_L, 0);
+        var observation = observedWorldFn(input);
+        var utterance = datum.output;
+        return L0(utterance, observation);
+    };
+};

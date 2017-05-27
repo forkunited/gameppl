@@ -75,16 +75,30 @@ var data_make = function(distribution, samplesPerInput, inputs) {
 
 };
 
-var _data_getDataByType = function(vectorSequence, dataType, params) {
+var _data_getInputDataByType = function(vectorSequence, dataType, params) {
     if (dataType == DATA_TYPE_VECTOR) {
         return vectorSequence[0];
     } else if (dataType == DATA_TYPE_SCALAR) {
         return ad.value(T.toScalars(vectorSequence[0])[0]);
     } else if (dataType == DATA_TYPE_SCALAR_SEQUENCE) {
-        return (params.maxSequenceLength === undefined || vectorSequence.length <= params.maxSequenceLength) ?
+        return (params.maxInputSequenceLength === undefined || vectorSequence.length <= params.maxInputSequenceLength) ?
             map(function(v) { ad.value(T.toScalars(v)[0]) }, vectorSequence) : undefined;
     } else if (dataType == DATA_TYPE_VECTOR_SEQUENCE) {
-        return (params.maxSequenceLength === undefined || vectorSequence.length <= params.maxSequenceLength) ?
+        return (params.maxInputSequenceLength === undefined || vectorSequence.length <= params.maxInputSequenceLength) ?
+            vectorSequence : undefined;
+    }
+};
+
+var _data_getOutputDataByType = function(vectorSequence, dataType, params) {
+    if (dataType == DATA_TYPE_VECTOR) {
+        return vectorSequence[0];
+    } else if (dataType == DATA_TYPE_SCALAR) {
+        return ad.value(T.toScalars(vectorSequence[0])[0]);
+    } else if (dataType == DATA_TYPE_SCALAR_SEQUENCE) {
+        return (params.maxOutputSequenceLength === undefined || vectorSequence.length <= params.maxOutputSequenceLength) ?
+            map(function(v) { ad.value(T.toScalars(v)[0]) }, vectorSequence) : undefined;
+    } else if (dataType == DATA_TYPE_VECTOR_SEQUENCE) {
+        return (params.maxOutputSequenceLength === undefined || vectorSequence.length <= params.maxOutputSequenceLength) ?
             vectorSequence : undefined;
     }
 };
@@ -94,7 +108,10 @@ var _data_getDataByType = function(vectorSequence, dataType, params) {
 // inputF : input feature matrix constructed from src/js/feature.js
 // outputF : output feature matrix constructed from src/js/feature.js
 // params :
-//    maxSequenceLength : Maximum length of vector or scalar sequences.
+//    maxInputSequenceLength : Maximum length of input vector or scalar sequences.
+//                        Sequences exceeding this length will be filtered
+//                        from the data
+//    maxOutputSequenceLength : Maximum length of output vector or scalar sequences.
 //                        Sequences exceeding this length will be filtered
 //                        from the data
 //    inputType : Data type of inputs (DATA_TYPE_VECTOR, DATA_TYPE_SCALAR, etc)
@@ -115,8 +132,8 @@ var data_makeFromFeatureMatrices = function(inputF, outputF, params) {
 		var outputTensorsTemp = gameppl.matrix.matrixToRowTensorList(outputMat);
 		var outputTensors = map(function(t) { Vector(t.toFlatArray()) }, outputTensorsTemp);
 
-		var input = _data_getDataByType(inputTensors, params.inputType, params);
-        var output = _data_getDataByType(outputTensors, params.outputType, params);
+		var input = _data_getInputDataByType(inputTensors, params.inputType, params);
+        var output = _data_getOutputDataByType(outputTensors, params.outputType, params);
 		
         return {
 			id : id,
@@ -128,7 +145,7 @@ var data_makeFromFeatureMatrices = function(inputF, outputF, params) {
 	}, gameppl.feature.getFeatureMatrixData(inputF)));
 
 	// Filter undefined inputs and outputs (that happen when a sequence exceeds max length)
-	return filter(function(d) { d.input !== undefined && d.output !== undefined }, D);
+	return sort(filter(function(d) { d.input !== undefined && d.output !== undefined }, D), lt, function(d) {d.id});
 };
 
 // data_makeUttObsFromFeatureMatrices
@@ -140,7 +157,10 @@ var data_makeFromFeatureMatrices = function(inputF, outputF, params) {
 // obsF : input observation feature matrix constructed from src/js/feature.js
 // outputF : output feature matrix constructed from src/js/feature.js
 // params :
-//    maxSequenceLength : Maximum length of vector or scalar sequences.
+//    maxInputSequenceLength : Maximum length of input vector or scalar sequences.
+//                        Sequences exceeding this length will be filtered
+//                        from the data
+//    maxOutputSequenceLength : Maximum length of output vector or scalar sequences.
 //                        Sequences exceeding this length will be filtered
 //                        from the data
 //    uttType : Data type of input utterance (DATA_TYPE_VECTOR, DATA_TYPE_SCALAR, etc)
@@ -168,9 +188,9 @@ var data_makeUttObsFromFeatureMatrices = function(uttF, obsF, outputF, params) {
         var obsTensorsTemp = gameppl.matrix.matrixToRowTensorList(obsMat);
         var obsTensors = map(function(t) { Vector(t.toFlatArray()) }, obsTensorsTemp);
 
-        var utt = _data_getDataByType(uttTensors, params.uttType, params);
-        var output = _data_getDataByType(outputTensors, params.outputType, params);
-        var obs = _data_getDataByType(obsTensors, params.obsType, params);
+        var utt = _data_getInputDataByType(uttTensors, params.uttType, params);
+        var output = _data_getOutputDataByType(outputTensors, params.outputType, params);
+        var obs = _data_getInputDataByType(obsTensors, params.obsType, params);
 
         return {
             id : id,
@@ -182,7 +202,7 @@ var data_makeUttObsFromFeatureMatrices = function(uttF, obsF, outputF, params) {
     }, gameppl.feature.getFeatureMatrixData(uttF)));
 
     // Filter undefined inputs and outputs (that happen when a sequence exceeds max length)
-    return filter(function(d) { d.input !== undefined && d.output !== undefined }, D);
+    return sort(filter(function(d) { d.input !== undefined && d.output !== undefined }, D), lt, function(d) {d.id});
 };
 
 // data_splitOnKey
