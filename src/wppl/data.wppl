@@ -145,7 +145,8 @@ var data_makeFromFeatureMatrices = function(inputF, outputF, params) {
 	}, gameppl.feature.getFeatureMatrixData(inputF)));
 
 	// Filter undefined inputs and outputs (that happen when a sequence exceeds max length)
-	return sort(filter(function(d) { d.input !== undefined && d.output !== undefined }, D), lt, function(d) {d.id});
+        var filteredD = filter(function(d) { d.input !== undefined && d.output !== undefined }, D);
+        return _.sortBy(filteredD, ["id"]);
 };
 
 // data_makeUttObsFromFeatureMatrices
@@ -202,7 +203,7 @@ var data_makeUttObsFromFeatureMatrices = function(uttF, obsF, outputF, params) {
     }, gameppl.feature.getFeatureMatrixData(uttF)));
 
     // Filter undefined inputs and outputs (that happen when a sequence exceeds max length)
-    return sort(filter(function(d) { d.input !== undefined && d.output !== undefined }, D), lt, function(d) {d.id});
+    return _.sortBy(filter(function(d) { d.input !== undefined && d.output !== undefined }, D), ["id"]);
 };
 
 // data_splitOnKey

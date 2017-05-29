@@ -124,6 +124,8 @@ var s1seqSampling_initTrainedModel = function(params, D) {
         return Bernoulli({ p : T.toScalars(output)[0] });
     };
 
+    display("Training internal s0...");
+
     var s0inputFn = params.s0inputFn;
     var s0model = enc_initTrainedModel(s0Params,
         map(function(datum) {
@@ -136,10 +138,14 @@ var s1seqSampling_initTrainedModel = function(params, D) {
         }, D)
     ); // Applies s0inputFn to data set before training s0
 
+    display("Training s1 meaning model...");
+
     /* S1 */
 
     var s1distFn = _s1seqSampling_initS1DistFn(params);
 
+    var worldPrior = params.rsaWorldPrior;
+    var worldPriorSupport = _.keys(gameppl.dist.distToObject(Infer({method:'enumerate'}, worldPrior)));
     var s1Params = {
         name : "S1",
         modelParamFn : function() {
@@ -155,9 +161,10 @@ var s1seqSampling_initTrainedModel = function(params, D) {
                 l0distFn : l0distFn,
                 l0seqFn : params.l0seqFn,
                 s0inputFn : s0inputFn,
-                s0sampleSize : s0sampleSize,
+                s0sampleSize : params.s0sampleSize,
                 rsaAlpha : params.rsaAlpha,
                 rsaWorldPrior : params.rsaWorldPrior,
+                rsaWorldPriorSupport : worldPriorSupport,
                 rsaHiddenWorldFn : params.rsaHiddenWorldFn,
                 rsaObservedWorldFn : params.rsaObservedWorldFn,
                 s1distFn : s1distFn
@@ -168,7 +175,7 @@ var s1seqSampling_initTrainedModel = function(params, D) {
         batchSize : params.batchSize,
         distributionFn : s1distFn
     };
-
+    
     var s1model = enc_initTrainedModel(s1Params, D);
     return s1model;
 };
@@ -245,13 +252,18 @@ var s1seqSampling_getL1DistributionFn = function(s1model, datum) {
         var s0inputFn = modelParams.s0inputFn;
         var s0sampleSize = modelParams.s0sampleSize;
 
-        var s0output = enc_modelScoredSamples(s0model, s0inputFn(input), util_objCategorical, s0sampleSize);
+        var utterance = datum.output;
+        var observation = observedWorldFn(input);
+
+        var s0dists = _.fromPairs(map(function(hidden) {
+            return [hidden, util_objSoftmaxCategorical(enc_modelScoredSamples(s0model, s0inputFn(input), util_objCategorical, s0sampleSize, utterance))]
+        }, modelParams.rsaWorldPriorSupport));
 
         var rsaParams = {
             cacheSize: 100,
             alpha: alpha,
             parametersPrior: function(observation) { return observation },
-            utterancePrior: function(observation, parameters) { sample(util_objSoftmaxCategorical(s0output)); },
+            utterancePrior: function(observation, parameters, hidden) { sample(s0dists[hidden]); },
             worldPrior: worldPrior,
             denotationDistFn: function(utterance, hidden, parameters) {
                 var l0seq = l0seqFn(utterance, hidden, parameters);
@@ -260,8 +272,6 @@ var s1seqSampling_getL1DistributionFn = function(s1model, datum) {
         };
 
         var L1 = makeRSA(rsaParams, RSA_L, 1);
-        var observation = observedWorldFn(input);
-        var utterance = datum.output;
         return L1(utterance, observation);
     };
 };

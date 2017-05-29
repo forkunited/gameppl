@@ -105,9 +105,8 @@ var argmax = function(vector) {
 // Necessary because webppl
 // drops the second argument
 var _first = function(l, n, maybeFilterFn) {
-	if (maybeFilterFn !== undefined)
+	if (maybeFilterFn === undefined)
 		return _.first(l, n);
-
 	var l_first = [];
 	for (var i = 0; i < l.length && l_first.length < n; i++) {
 		if (maybeFilterFn(l[i])) {
