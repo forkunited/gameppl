@@ -29,3 +29,5 @@ var itemsString = [{value : "1", score : .5 }, {value : "2", score : .5 },{value
 display(gameppl.util.removeDuplicateScoredValues(itemsList, gameppl.util.types.LIST));
 display(gameppl.util.removeDuplicateScoredValues(itemsNumber, gameppl.util.types.NUMBER));
 display(gameppl.util.removeDuplicateScoredValues(itemsString, gameppl.util.types.STRING));
+
+display("[asdf]".startsWith("["));

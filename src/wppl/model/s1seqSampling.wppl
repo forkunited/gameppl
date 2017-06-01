@@ -20,7 +20,11 @@ var _s1seqSampling_initS1DistFn = function(initParams) {
         var l0distFn = params.l0distFn;
         var s0model = params.s0model;
         var s0inputFn = params.s0inputFn;
-        var s0output = enc_modelScoredSamples(s0model, s0inputFn(world), util_objCategorical, s0sampleSize, maybeObserved);
+
+        var observation = observedWorldFn(world);
+        var hidden = hiddenWorldFn(world);
+
+        var s0output = enc_modelScoredSamples(s0model, s0inputFn(observation, hidden), util_objCategorical, s0sampleSize, maybeObserved);
 
         var rsaParams = {
             cacheSize: 100,
@@ -35,8 +39,6 @@ var _s1seqSampling_initS1DistFn = function(initParams) {
         };
 
         var S1 = makeRSA(rsaParams, RSA_S, 1);
-        var observation = observedWorldFn(world);
-        var hidden = hiddenWorldFn(world);
 
         return S1(hidden, observation);
     }
@@ -126,13 +128,17 @@ var s1seqSampling_initTrainedModel = function(params, D) {
 
     display("Training internal s0...");
 
+    var hiddenWorldFn = params.rsaHiddenWorldFn;
+    var observedWorldFn = params.rsaObservedWorldFn;
     var s0inputFn = params.s0inputFn;
     var s0model = enc_initTrainedModel(s0Params,
         map(function(datum) {
             return mapObject(function (key, value) {
-                if (key === 'input')
-                    return s0inputFn(value)
-                else
+                if (key === 'input') {
+                    var observed = observedWorldFn(value);
+                    var hidden = hiddenWorldFn(value);
+                    return s0inputFn(observed, hidden);
+                } else
                     return value
             }, datum)
         }, D)
@@ -256,7 +262,7 @@ var s1seqSampling_getL1DistributionFn = function(s1model, datum) {
         var observation = observedWorldFn(input);
 
         var s0dists = _.fromPairs(map(function(hidden) {
-            return [hidden, util_objSoftmaxCategorical(enc_modelScoredSamples(s0model, s0inputFn(input), util_objCategorical, s0sampleSize, utterance))]
+            return [hidden, util_objSoftmaxCategorical(enc_modelScoredSamples(s0model, s0inputFn(observation, hidden), util_objCategorical, s0sampleSize, utterance))]
         }, modelParams.rsaWorldPriorSupport));
 
         var rsaParams = {
