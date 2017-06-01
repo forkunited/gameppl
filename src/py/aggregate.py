@@ -10,8 +10,11 @@ input_file_dir = sys.argv[1]
 input_file_type = sys.argv[2]
 output_file_path = sys.argv[3]
 tsv_line_start = None
+tsv_line_end = None
 if input_file_type == "MESSY_TSV":
     tsv_line_start = sys.argv[4]
+    if len(sys.argv) >= 5:
+        tsv_line_end = sys.argv[5]
 
 def process_tsv_file(file_path):
     f = open(file_path, 'rt')
@@ -24,14 +27,14 @@ def process_tsv_file(file_path):
         f.close()
     return rows
 
-def process_messy_tsv_file(file_path):
+def process_messy_tsv_file(file_path, name):
     records = []
     tsv_started = False
     f = open(file_path, 'rt')
-
     try:
         keys = []
         for line in f:
+            line = line.strip()
             if line.startswith("undefined"):
                 continue
             if tsv_started:
@@ -39,8 +42,9 @@ def process_messy_tsv_file(file_path):
                 values = line.split("\t")
                 for i in range(len(values)):
                     cur_record[keys[i].strip()] = values[i].strip()
+                cur_record["name"] = name.split("_")[1]  # NOTE: Hack
                 records.append(cur_record)
-            elif line.startswith(tsv_line_start):
+            elif line.startswith(tsv_line_start) and (tsv_line_end is None or line.endswith(tsv_line_end)):
                 tsv_started = True
                 keys = line.split("\t")
     finally:
@@ -86,6 +90,19 @@ def process_messy_file(file_path):
     return [record]
 
 def output_tsv(file_path, rows):
+    keys = set(rows[0].keys())
+    for row in rows:
+        keys = keys & set(row.keys())
+
+    for row in rows:
+        to_rem = []
+        for row_key in row.keys():
+            if row_key not in keys:
+                to_rem.append(row_key)
+        for rem in to_rem:
+            del row[rem]
+
+
     fields = OrderedDict([(k, None) for k in rows[0].keys()])
     f = open(file_path, 'wb')
     try:
@@ -103,7 +120,7 @@ def aggregate_directory(file_dir, file_type):
         if file_type == 'MESSY':
             rows.extend(process_messy_file(join(file_dir, file)))
         elif file_type == 'MESSY_TSV':
-            rows.extend(process_messy_tsv_file(join(file_dir,file)))
+            rows.extend(process_messy_tsv_file(join(file_dir,file), file))
         else:
             rows.extend(process_tsv_file(join(file_dir, file)))
     return rows
