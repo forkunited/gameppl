@@ -30,11 +30,11 @@ var _l1seqSampling_initL1DistFn = function(initParams) {
             return [hidden,
                 (s0sampleDistractors) ?
                     _.flatten(map(function(possibleHidden) {
-                        if (maybeObserved !== undefined && possibleHidden === maybeObserved)
+                        if (maybeObserved !== undefined && possibleHidden == maybeObserved)
                             return enc_modelScoredSamples(s0model, s0inputFn(observation, possibleHidden), util_objCategorical, s0sampleSize, utterance)
                         else
                             return enc_modelScoredSamples(s0model, s0inputFn(observation, possibleHidden), util_objCategorical, s0sampleSize)
-                    }, modelParams.rsaWorldPriorSupport)).concat(maybeObserved !== undefined ? [] : enc_modelScoredSamples(s0model, s0inputFn(observation, possibleHidden), util_objCategorical, 1, utterance))
+                    }, modelParams.rsaWorldPriorSupport)).concat(maybeObserved !== undefined ? [] : enc_modelScoredSamples(s0model, s0inputFn(observation, hidden), util_objCategorical, 1, utterance))
                     : util_objSoftmaxCategorical(enc_modelScoredSamples(s0model, s0inputFn(observation, hidden), util_objCategorical, s0sampleSize, utterance))]
         }, modelParams.rsaWorldPriorSupport));
 
