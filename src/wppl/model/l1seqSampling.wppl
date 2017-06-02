@@ -14,6 +14,7 @@ var _l1seqSampling_initL1DistFn = function(initParams) {
     var alpha = initParams.rsaAlpha;
     var meaningSeqFn = initParams.meaningSeqFn; // utterance x hidden x observation -> meaning input vector sequence
     var s0sampleSize = initParams.s0sampleSize;
+    var s0sampleDistractors = initParams.s0sampleDistractors;
     var worldPriorSupport = _.keys(gameppl.dist.distToObject(Infer({method:'enumerate'}, worldPrior)));
 
     return function(l1FillerOutput, input, params, maybeObserved) {
@@ -26,8 +27,16 @@ var _l1seqSampling_initL1DistFn = function(initParams) {
         var utterance = utteranceFn(input);
 
         var s0dists = _.fromPairs(map(function(hidden) {
-            return [hidden, util_objSoftmaxCategorical(enc_modelScoredSamples(s0model, s0inputFn(observation, hidden), util_objCategorical, s0sampleSize, utterance))]
-        }, worldPriorSupport));
+            return [hidden,
+                (s0sampleDistractors) ?
+                    _.flatten(map(function(possibleHidden) {
+                        if (maybeObserved !== undefined && possibleHidden === maybeObserved)
+                            return enc_modelScoredSamples(s0model, s0inputFn(observation, possibleHidden), util_objCategorical, s0sampleSize, utterance)
+                        else
+                            return enc_modelScoredSamples(s0model, s0inputFn(observation, possibleHidden), util_objCategorical, s0sampleSize)
+                    }, modelParams.rsaWorldPriorSupport)).concat(maybeObserved !== undefined ? [] : enc_modelScoredSamples(s0model, s0inputFn(observation, possibleHidden), util_objCategorical, 1, utterance))
+                    : util_objSoftmaxCategorical(enc_modelScoredSamples(s0model, s0inputFn(observation, hidden), util_objCategorical, s0sampleSize, utterance))]
+        }, modelParams.rsaWorldPriorSupport));
 
         var rsaParams = {
             cacheSize: 100,
@@ -55,6 +64,7 @@ var _l1seqSampling_initL1DistFn = function(initParams) {
 //   s0inputDimension : Dimension of inputs to the l0 encoder
 //   latentDimension : Size of hidden layer (must be even)
 //   s0sampleSize : Number of samples to take from s0 for utterance prior
+//   s0sampleDistractors : Indicator of whether s0 should sample from distractors
 //   iterations : Training iterations
 //   sIterations : Training iterations for internal s models
 //   gradientSamples : Training gradient samples

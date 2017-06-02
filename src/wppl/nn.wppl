@@ -190,10 +190,10 @@ var nn_decodeSample = function(decoder, input, latentState, distributionFn, mayb
 // [maybeObserved] : Observation to factor on
 // [maybeType] : Maybe util.type of items in distribution support for distribution returned by distributionFn
 //
-// return at most n (value, score) samples plus maybeObserved
+// return at most n (value, score) samples possibly including maybeObserved
 var nn_decodeScoredSamples = function(decoder, input, latentState, distributionFn, n, maybeObserved, maybeType) {
     var Dist = nn_decodeDistribution(decoder, input, latentState, distributionFn);
-    var samples = repeat(n, function() { var s = sample(Dist); return { value : s, score : Dist.score(s) }});
+    var samples = repeat((maybeObserved !== undefined) ? n - 1 : n, function() { var s = sample(Dist); return { value : s, score : Dist.score(s) }});
     if (maybeObserved !== undefined) {
         var samplesObs = samples.concat({
             value : maybeObserved,

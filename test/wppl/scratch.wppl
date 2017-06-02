@@ -31,3 +31,6 @@ display(gameppl.util.removeDuplicateScoredValues(itemsNumber, gameppl.util.types
 display(gameppl.util.removeDuplicateScoredValues(itemsString, gameppl.util.types.STRING));
 
 display("[asdf]".startsWith("["));
+
+var x = repeat(1, function() { "hi" });
+display(x);
