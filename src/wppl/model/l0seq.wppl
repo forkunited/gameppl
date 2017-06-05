@@ -106,6 +106,7 @@ var l0seq_initTrainedModel = function(params, D) {
 //     s0inputFn
 //     rsaAlpha
 //     s0sampleSize
+//     s0sampleDistractors
 //     s0inputDimension
 //     iterations
 //     gradientSamples
@@ -121,6 +122,7 @@ var l0seq_initL1DistributionFn = function(l0model, initParams, D) {
     var s0inputFn = initParams.s0inputFn;
     var alpha = initParams.rsaAlpha;
     var s0sampleSize = initParams.s0sampleSize;
+    var s0sampleDistractors = inputParams.s0sampleDistractors;
     var s0inputDimension = initParams.s0inputDimension;
     var iterations = initParams.iterations;
     var gradientSamples = initParams.gradientSamples;
@@ -190,7 +192,15 @@ var l0seq_initL1DistributionFn = function(l0model, initParams, D) {
         var utterance = utteranceFn(input);
 
         var s0dists = _.fromPairs(map(function(hidden) {
-            return [hidden, util_objSoftmaxCategorical(enc_modelScoredSamples(s0model, s0inputFn(observation, hidden), util_objCategorical, s0sampleSize, utterance))]
+            return [hidden,
+                (s0sampleDistractors) ?
+                    util_objSoftmaxCategorical(_.flatten(map(function(possibleHidden) {
+                        if (maybeObserved !== undefined && possibleHidden == maybeObserved)
+                            return enc_modelScoredSamples(s0model, s0inputFn(observation, possibleHidden), util_objCategorical, s0sampleSize, utterance)
+                        else
+                            return enc_modelScoredSamples(s0model, s0inputFn(observation, possibleHidden), util_objCategorical, s0sampleSize)
+                    }, worldPriorSupport)).concat(maybeObserved !== undefined ? [] : enc_modelScoredSamples(s0model, s0inputFn(observation, hidden), util_objCategorical, 1, utterance)))
+                    : util_objSoftmaxCategorical(enc_modelScoredSamples(s0model, s0inputFn(observation, hidden), util_objCategorical, s0sampleSize, utterance))]
         }, worldPriorSupport));
 
         var rsaParams = {
