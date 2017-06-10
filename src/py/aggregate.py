@@ -12,7 +12,7 @@ output_file_path = sys.argv[3]
 tsv_line_start = None
 tsv_line_end = None
 if input_file_type == "MESSY_TSV":
-    tsv_line_start = sys.argv[4]
+    tsv_line_starts = sys.argv[4].split(",")
     if len(sys.argv) >= 5:
         tsv_line_end = sys.argv[5]
 
@@ -35,6 +35,12 @@ def process_messy_tsv_file(file_path, name):
         keys = []
         for line in f:
             line = line.strip()
+            is_tsv_start = False
+            for tsv_line_start in tsv_line_starts:
+                if line.startswith(tsv_line_start):
+                    is_tsv_start = True
+                    break
+
             if line.startswith("undefined"):
                 continue
             if tsv_started:
@@ -42,9 +48,12 @@ def process_messy_tsv_file(file_path, name):
                 values = line.split("\t")
                 for i in range(len(values)):
                     cur_record[keys[i].strip()] = values[i].strip()
-                cur_record["name"] = name.split("_")[1]  # NOTE: Hack
+                if "name" not in cur_record:
+                    cur_record["name"] = name.split("_")[1]  # NOTE: Hack
+                else:
+                    cur_record["name"] = cur_record["name"].split("_")[0]
                 records.append(cur_record)
-            elif line.startswith(tsv_line_start) and (tsv_line_end is None or line.endswith(tsv_line_end)):
+            elif is_tsv_start and (tsv_line_end is None or line.endswith(tsv_line_end)):
                 tsv_started = True
                 keys = line.split("\t")
     finally:

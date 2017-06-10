@@ -3,7 +3,7 @@
 // Represents a RSA S1 sequence learning model
 // (Sampling S0 used for utterance prior)
 
-var _s1seqSampling_initS1S0Dists = function(s0model, s0sampleDistractors, s0sampleSize, s0inputFn, observation, worldPriorSupport, maybeObserved) {
+var _s1seqSampling_initS1S0Dists = function(s0model, s0sampleDistractors, s0sampleSize, s0inputFn, observation, hidden, worldPriorSupport, maybeObserved) {
     if (s0sampleDistractors && maybeObserved !== undefined) {
         return _.flatten(map(function (possibleHidden) {
             if (possibleHidden == hidden && maybeObserved !== undefined) {
@@ -40,7 +40,7 @@ var _s1seqSampling_initS1DistFn = function(initParams) {
         var observation = observedWorldFn(world);
         var hidden = hiddenWorldFn(world);
 
-        var s0output = _s1seqSampling_initS1S0Dists(s0model, s0sampleDistractors, s0sampleSize, s0inputFn, observation, worldPriorSupport, maybeObserved);
+        var s0output = _s1seqSampling_initS1S0Dists(s0model, s0sampleDistractors, s0sampleSize, s0inputFn, observation, hidden, worldPriorSupport, maybeObserved);
 
         var rsaParams = {
             cacheSize: 100,
