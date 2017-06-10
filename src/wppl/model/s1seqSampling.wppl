@@ -3,6 +3,20 @@
 // Represents a RSA S1 sequence learning model
 // (Sampling S0 used for utterance prior)
 
+var _s1seqSampling_initS1S0Dists = function(s0model, s0sampleDistractors, s0sampleSize, s0inputFn, observation, worldPriorSupport, maybeObserved) {
+    if (s0sampleDistractors && maybeObserved !== undefined) {
+        return _.flatten(map(function (possibleHidden) {
+            if (possibleHidden == hidden && maybeObserved !== undefined) {
+                return enc_modelScoredSamples(s0model, s0inputFn(observation, possibleHidden), util_objCategorical, s0sampleSize, true, maybeObserved)
+            } else
+                return enc_modelScoredSamples(s0model, s0inputFn(observation, possibleHidden), util_objCategorical, s0sampleSize, true)
+        }, worldPriorSupport))
+    } else {
+        var samples = s0sampleDistractors ? s0sampleSize * worldPriorSupport.length - 1 : s0sampleSize;
+        return enc_modelScoredSamples(s0model, s0inputFn(observation, hidden), util_objCategorical, samples, true, maybeObserved);
+    }
+};
+
 // _s1seqSampling_initS1DistFn
 //
 // Private function for constructing function that constructs an
@@ -26,16 +40,8 @@ var _s1seqSampling_initS1DistFn = function(initParams) {
         var observation = observedWorldFn(world);
         var hidden = hiddenWorldFn(world);
 
-        var s0output = (s0sampleDistractors) ?
-            _.flatten(map(function(possibleHidden) {
-                if (possibleHidden == hidden && maybeObserved !== undefined) {
-                    return enc_modelScoredSamples(s0model, s0inputFn(observation, possibleHidden), util_objCategorical, s0sampleSize, maybeObserved)
-                } else
-                    return enc_modelScoredSamples(s0model, s0inputFn(observation, possibleHidden), util_objCategorical, s0sampleSize)
-            }, worldPriorSupport))
+        var s0output = _s1seqSampling_initS1S0Dists(s0model, s0sampleDistractors, s0sampleSize, s0inputFn, observation, worldPriorSupport, maybeObserved);
 
-            : enc_modelScoredSamples(s0model, s0inputFn(observation, hidden), util_objCategorical, s0sampleSize, maybeObserved);
-        
         var rsaParams = {
             cacheSize: 100,
             alpha: alpha,
@@ -249,6 +255,34 @@ var s1seqSampling_getMeaningFn = function(s1model) {
     };
 };
 
+var _l1seqSampling_makeS0Dists = function(s0model, s0sampleDistractors, s0sampleSize, s0inputFn, observation, utterance, worldPriorSupport, maybeObserved) {
+    if (s0sampleDistractors && maybeObserved !== undefined) {
+        _.fromPairs(map(function(hidden) {
+            return [hidden,
+                util_objSoftmaxCategorical(_.flatten(map(function(possibleHidden) {
+                    if (possibleHidden == maybeObserved)
+                        return enc_modelScoredSamples(s0model, s0inputFn(observation, possibleHidden), util_objCategorical, s0sampleSize, true, utterance)
+                    else
+                        return enc_modelScoredSamples(s0model, s0inputFn(observation, possibleHidden), util_objCategorical, s0sampleSize, true)
+                }, worldPriorSupport)))];
+        }, worldPriorSupport));
+    } else {
+        var samples = s0sampleDistractors ? s0sampleSize * worldPriorSupport.length - 1 : s0sampleSize;
+        return _.fromPairs(map(function(hidden) {
+            return [hidden,
+                util_objSoftmaxCategorical(enc_modelScoredSamples(s0model, s0inputFn(observation, hidden), util_objCategorical, s0sampleSize, true, utterance))]
+        }, worldPriorSupport));
+    }
+};
+
+var _s1seqSampling_makeS0Dists = function(s0model, s0sampleDistractors, s0sampleSize, s0inputFn, observation, utterance, worldPriorSupport) {
+    var samples = s0sampleDistractors ? s0sampleSize * worldPriorSupport.length - 1 : s0sampleSize;
+    return _.fromPairs(map(function(hidden) {
+        return [hidden,
+            util_objSoftmaxCategorical(enc_modelScoredSamples(s0model, s0inputFn(observation, hidden), util_objCategorical, s0sampleSize, true, utterance))]
+    }, worldPriorSupport));
+};
+
 // s1seqSampling_getL1DistributionFn
 //
 // s1model : s1 model object constructed by l1seqSampling_initTrainedModel
@@ -275,14 +309,7 @@ var s1seqSampling_getL1DistributionFn = function(s1model, datum) {
         var utterance = datum.output;
         var observation = observedWorldFn(input);
 
-        var s0dists = _.fromPairs(map(function(hidden) {
-            return [hidden,
-                (s0sampleDistractors) ?
-                    util_objSoftmaxCategorical(_.flatten(map(function(possibleHidden) {
-                        return enc_modelScoredSamples(s0model, s0inputFn(observation, possibleHidden), util_objCategorical, s0sampleSize)
-                    }, modelParams.rsaWorldPriorSupport)).concat(enc_modelScoredSamples(s0model, s0inputFn(observation, hidden), util_objCategorical, 1, utterance)))
-                    : util_objSoftmaxCategorical(enc_modelScoredSamples(s0model, s0inputFn(observation, hidden), util_objCategorical, s0sampleSize, utterance))]
-        }, modelParams.rsaWorldPriorSupport));
+        var s0dists = _s1seqSampling_makeS0Dists(s0model, s0sampleDistractors, s0sampleSize, s0inputFn, observation, utterance, modelParams.rsaWorldPriorSupport);
 
         var rsaParams = {
             cacheSize: 100,

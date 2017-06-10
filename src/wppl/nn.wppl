@@ -187,17 +187,18 @@ var nn_decodeSample = function(decoder, input, latentState, distributionFn, mayb
 // latentState : state to decode
 // distributionFn : decoder output, input, decoder -> Distribution
 // n : number of samples
+// [maybeUniform] :  Maybe indicator of whether to return a score of 1 (uniformly) across samples
 // [maybeObserved] : Observation to factor on
 // [maybeType] : Maybe util.type of items in distribution support for distribution returned by distributionFn
 //
 // return at most n (value, score) samples possibly including maybeObserved
-var nn_decodeScoredSamples = function(decoder, input, latentState, distributionFn, n, maybeObserved, maybeType) {
+var nn_decodeScoredSamples = function(decoder, input, latentState, distributionFn, n, maybeUniform, maybeObserved, maybeType) {
     var Dist = nn_decodeDistribution(decoder, input, latentState, distributionFn);
     var samples = repeat((maybeObserved !== undefined) ? n - 1 : n, function() { var s = sample(Dist); return { value : s, score : Dist.score(s) }});
     if (maybeObserved !== undefined) {
         var samplesObs = samples.concat({
             value : maybeObserved,
-            score : nn_decodeLL(decoder, maybeObserved, input, latentState, distributionFn)
+            score : maybeUniform ? 1.0 : nn_decodeLL(decoder, maybeObserved, input, latentState, distributionFn)
         });
 
         return gameppl.util.removeDuplicateScoredValues(samplesObs, maybeType);

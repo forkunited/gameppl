@@ -113,15 +113,16 @@ var enc_decodeLL = function(decoder, output, input, latentState, distributionFn)
 // latentState : state to decode
 // distributionFn : decoder output, input, decoder -> Distribution
 // n : number of samples
+// [maybeUniform] :  Maybe indicator of whether to return a score of 1 (uniformly) across samples
 // [maybeObserved] : Observation to factor on
 // [maybeType] : Maybe util.type of items in distribution support for distribution returned by distributionFn
 //
 // return at most n (value, score) samples plus maybeObserved
-var enc_decodeScoredSamples = function(decoder, input, latentState, distributionFn, n, maybeObserved, maybeType) {
+var enc_decodeScoredSamples = function(decoder, input, latentState, distributionFn, n, maybeUniform, maybeObserved, maybeType) {
     if (decoder.type === ENC_NN) {
-        return nn_decodeScoredSamples(decoder.obj, input, latentState, distributionFn, n, maybeObserved, maybeType);
+        return nn_decodeScoredSamples(decoder.obj, input, latentState, distributionFn, n, maybeUniform, maybeObserved, maybeType);
     } else if (decoder.type === ENC_SEQ) {
-        return seq_decodeScoredSamples(decoder.obj, input, latentState, distributionFn, n, maybeObserved, maybeType);
+        return seq_decodeScoredSamples(decoder.obj, input, latentState, distributionFn, n, maybeUniform, maybeObserved, maybeType);
     }
 };
 
@@ -195,15 +196,16 @@ var enc_modelSample = function(model, input, distributionFn, maybeObservation) {
 // input : observed input (probably passed through encoder to construct state)
 // distributionFn : decoder output, input, decoder -> Distribution
 // n : number of samples
+// [maybeUniform] :  Maybe indicator of whether to return a score of 1 (uniformly) across samples
 // [maybeObserved] : Observation to factor on
 // [maybeType] : Maybe util.type of items in distribution support for distribution returned by distributionFn
 //
 // return at most n (value, score) samples plus maybeObserved
-var enc_modelScoredSamples = function(model, input, distributionFn, n, maybeObserved, maybeType) {
+var enc_modelScoredSamples = function(model, input, distributionFn, n, maybeUniform, maybeObserved, maybeType) {
     var encoder = model.encoder;
     var decoder = model.decoder;
     var latentState = enc_applyEncoder(encoder, input);
-    return enc_decodeScoredSamples(decoder, input, latentState, distributionFn, n, maybeObserved, maybeType);
+    return enc_decodeScoredSamples(decoder, input, latentState, distributionFn, n, maybeUniform, maybeObserved, maybeType);
 };
 
 // enc_modelDistribution

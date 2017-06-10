@@ -98,6 +98,26 @@ var l0seq_initTrainedModel = function(params, D) {
     return l0model;
 };
 
+var _l0seqSampling_makeS0Dists = function(s0model, s0sampleDistractors, s0sampleSize, s0inputFn, observation, utterance, worldPriorSupport, maybeObserved) {
+    if (s0sampleDistractors && maybeObserved !== undefined) {
+        _.fromPairs(map(function(hidden) {
+            return [hidden,
+                util_objSoftmaxCategorical(_.flatten(map(function(possibleHidden) {
+                    if (possibleHidden == maybeObserved)
+                        return enc_modelScoredSamples(s0model, s0inputFn(observation, possibleHidden), util_objCategorical, s0sampleSize, true, utterance)
+                    else
+                        return enc_modelScoredSamples(s0model, s0inputFn(observation, possibleHidden), util_objCategorical, s0sampleSize, true)
+                }, worldPriorSupport)))];
+        }, worldPriorSupport));
+    } else {
+        var samples = s0sampleDistractors ? s0sampleSize * worldPriorSupport.length - 1 : s0sampleSize;
+        return _.fromPairs(map(function(hidden) {
+            return [hidden,
+                util_objSoftmaxCategorical(enc_modelScoredSamples(s0model, s0inputFn(observation, hidden), util_objCategorical, s0sampleSize, true, utterance))]
+        }, worldPriorSupport));
+    }
+};
+
 // l0seq_initL1DistributionFn
 //
 // l0model : l0 model object constructed by l0inc_initTrainedModel
@@ -191,17 +211,7 @@ var l0seq_initL1DistributionFn = function(l0model, initParams, D) {
         var observation = observedWorldFn(input);
         var utterance = utteranceFn(input);
 
-        var s0dists = _.fromPairs(map(function(hidden) {
-            return [hidden,
-                (s0sampleDistractors) ?
-                    util_objSoftmaxCategorical(_.flatten(map(function(possibleHidden) {
-                        if (maybeObserved !== undefined && possibleHidden == maybeObserved)
-                            return enc_modelScoredSamples(s0model, s0inputFn(observation, possibleHidden), util_objCategorical, s0sampleSize, utterance)
-                        else
-                            return enc_modelScoredSamples(s0model, s0inputFn(observation, possibleHidden), util_objCategorical, s0sampleSize)
-                    }, worldPriorSupport)).concat(maybeObserved !== undefined ? [] : enc_modelScoredSamples(s0model, s0inputFn(observation, hidden), util_objCategorical, 1, utterance)))
-                    : util_objSoftmaxCategorical(enc_modelScoredSamples(s0model, s0inputFn(observation, hidden), util_objCategorical, s0sampleSize, utterance))]
-        }, worldPriorSupport));
+        var s0dists = _l0seqSampling_makeS0Dists(s0model, s0sampleDistractors, s0sampleSize, s0inputFn, observation, utterance, worldPriorSupport, maybeObserved);
 
         var rsaParams = {
             cacheSize: 100,

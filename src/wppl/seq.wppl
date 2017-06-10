@@ -144,19 +144,21 @@ var seq_decodeSample = function(decoder, input, latentState, distributionFn, may
 // latentState : state to decode
 // distributionFn : decoder output, input, decoder -> Distribution
 // n : number of samples
+// [maybeUniform] :  Maybe indicator of whether to return a score of 1 (uniformly) across samples
 // [maybeObserved] : Observation to factor on
 // [maybeType] : Unnecessary here
 //
 // return at most n (value, score) samples plus maybeObserved
-var seq_decodeScoredSamples = function(decoder, input, latentState, distributionFn, n, maybeObserved, maybeType) {
+var seq_decodeScoredSamples = function(decoder, input, latentState, distributionFn, n, maybeUniform, maybeObserved, maybeType) {
     if (decoder.samplingType === SEQ_DECODER_APPROXIMATE_BEAM) {
         var output = _seq_beamDecode(decoder, input, maybeObserved, [latentState]);
+
         var Dist = distributionFn(output, input, decoder);
-        var samples = repeat((maybeObserved !== undefined) ? n - 1 : n, function() { var s = sample(Dist); return { value : s, score : Dist.score(s) }});
+        var samples = repeat((maybeObserved !== undefined) ? n - 1 : n, function() { var s = sample(Dist); return { value : s, score : maybeUniform ? 1.0 : Dist.score(s) }});
         if (maybeObserved !== undefined) {
             var samplesObs = samples.concat({
                 value : maybeObserved,
-                score : seq_decodeLL(decoder, maybeObserved, input, latentState, distributionFn)
+                score : (maybeUniform) ? 1.0 : seq_decodeLL(decoder, maybeObserved, input, latentState, distributionFn)
             });
 
             return gameppl.util.removeDuplicateScoredValues(samplesObs, gameppl.util.types.LIST);
@@ -165,14 +167,19 @@ var seq_decodeScoredSamples = function(decoder, input, latentState, distribution
         }
     } else if (decoder.samplingType === SEQ_DECODER_EXACT) {
         var samples = repeat((maybeObserved !== undefined) ? n - 1 : n, function() {
-            return _seq_exactDecodeSample(decoder, input, distributionFn, undefined, latentState, undefined, undefined, true);
+            if (maybeUniform) {
+                var sample = _seq_exactDecodeSample(decoder, input, distributionFn, undefined, latentState, undefined, undefined, false);
+                return { value : sample, score : 1.0 };
+            } else {
+                return _seq_exactDecodeSample(decoder, input, distributionFn, undefined, latentState, undefined, undefined, true);
+            }
             // var score = seq_decodeLL(decoder, value, input, latentState, distributionFn);
             // return { value : value, score : score };
         });
         if (maybeObserved !== undefined) {
             var samplesObs = samples.concat({
                 value : maybeObserved,
-                score : seq_decodeLL(decoder, maybeObserved, input, latentState, distributionFn)});
+                score : maybeUniform ? 1.0 : seq_decodeLL(decoder, maybeObserved, input, latentState, distributionFn)});
 
             return gameppl.util.removeDuplicateScoredValues(samplesObs, gameppl.util.types.LIST);
         } else {
