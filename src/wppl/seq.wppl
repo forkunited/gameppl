@@ -148,7 +148,7 @@ var seq_decodeSample = function(decoder, input, latentState, distributionFn, may
 // [maybeObserved] : Observation to factor on
 // [maybeType] : Unnecessary here
 //
-// return at most n (value, score) samples plus maybeObserved
+// return at most n (value, score) samples including maybeObserved
 var seq_decodeScoredSamples = function(decoder, input, latentState, distributionFn, n, maybeUniform, maybeObserved, maybeType) {
     if (decoder.samplingType === SEQ_DECODER_APPROXIMATE_BEAM) {
         var output = _seq_beamDecode(decoder, input, maybeObserved, [latentState]);

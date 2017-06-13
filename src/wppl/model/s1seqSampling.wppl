@@ -12,7 +12,7 @@ var _s1seqSampling_initS1S0Dists = function(s0model, s0sampleDistractors, s0samp
                 return enc_modelScoredSamples(s0model, s0inputFn(observation, possibleHidden), util_objCategorical, s0sampleSize, true)
         }, worldPriorSupport))
     } else {
-        var samples = s0sampleDistractors ? s0sampleSize * worldPriorSupport.length - 1 : s0sampleSize;
+        var samples = s0sampleDistractors ? s0sampleSize * worldPriorSupport.length : s0sampleSize;
         return enc_modelScoredSamples(s0model, s0inputFn(observation, hidden), util_objCategorical, samples, true, maybeObserved);
     }
 };
@@ -255,31 +255,11 @@ var s1seqSampling_getMeaningFn = function(s1model) {
     };
 };
 
-var _l1seqSampling_makeS0Dists = function(s0model, s0sampleDistractors, s0sampleSize, s0inputFn, observation, utterance, worldPriorSupport, maybeObserved) {
-    if (s0sampleDistractors && maybeObserved !== undefined) {
-        _.fromPairs(map(function(hidden) {
-            return [hidden,
-                util_objSoftmaxCategorical(_.flatten(map(function(possibleHidden) {
-                    if (possibleHidden == maybeObserved)
-                        return enc_modelScoredSamples(s0model, s0inputFn(observation, possibleHidden), util_objCategorical, s0sampleSize, true, utterance)
-                    else
-                        return enc_modelScoredSamples(s0model, s0inputFn(observation, possibleHidden), util_objCategorical, s0sampleSize, true)
-                }, worldPriorSupport)))];
-        }, worldPriorSupport));
-    } else {
-        var samples = s0sampleDistractors ? s0sampleSize * worldPriorSupport.length - 1 : s0sampleSize;
-        return _.fromPairs(map(function(hidden) {
-            return [hidden,
-                util_objSoftmaxCategorical(enc_modelScoredSamples(s0model, s0inputFn(observation, hidden), util_objCategorical, s0sampleSize, true, utterance))]
-        }, worldPriorSupport));
-    }
-};
-
 var _s1seqSampling_makeS0Dists = function(s0model, s0sampleDistractors, s0sampleSize, s0inputFn, observation, utterance, worldPriorSupport) {
-    var samples = s0sampleDistractors ? s0sampleSize * worldPriorSupport.length - 1 : s0sampleSize;
+    var samples = s0sampleDistractors ? s0sampleSize * worldPriorSupport.length : s0sampleSize;
     return _.fromPairs(map(function(hidden) {
         return [hidden,
-            util_objSoftmaxCategorical(enc_modelScoredSamples(s0model, s0inputFn(observation, hidden), util_objCategorical, s0sampleSize, true, utterance))]
+            util_objSoftmaxCategorical(enc_modelScoredSamples(s0model, s0inputFn(observation, hidden), util_objCategorical, samples, true, utterance))]
     }, worldPriorSupport));
 };
 
@@ -310,7 +290,6 @@ var s1seqSampling_getL1DistributionFn = function(s1model, datum) {
         var observation = observedWorldFn(input);
 
         var s0dists = _s1seqSampling_makeS0Dists(s0model, s0sampleDistractors, s0sampleSize, s0inputFn, observation, utterance, modelParams.rsaWorldPriorSupport);
-
         var rsaParams = {
             cacheSize: 100,
             alpha: alpha,

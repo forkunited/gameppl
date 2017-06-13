@@ -27,7 +27,7 @@ var evaluation_modelEncModeAccuracy = function(model, D, distributionFn) {
 
     var correctIndicators = map(function(d) {
         var modes = enc_modelModes(model, d.input, distributionFn);
-        var correct = any(function(mode) { mode === d.output.toString() }, modes) ? 1.0 : 0.0 ;
+        var correct = modes[0] === d.output.toString() ? 1.0 : 0.0 ;
 
         return { key : makeInfoKey(d), value : correct }
     }, D);
@@ -57,7 +57,7 @@ var evaluation_modelEncModeAccuracyGrungyData = function(model, D, makeDistribut
         var distributionFn = makeDistributionFn(model, d);
         var modes = enc_modelModes(model, d.input, distributionFn);
         var output = outputFn(d);
-        var correct = any(function(mode) { mode === output.toString() }, modes) ? 1.0 : 0.0 ;
+        var correct = modes[0] === output.toString() ? 1.0 : 0.0 ;
 
         return { key : makeInfoKey(d), value : correct }
     }, D);
